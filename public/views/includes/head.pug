@@ -5,3 +5,7 @@ head
   title #{title || (currentPath === '/login' ? 'Connexion' : currentPath === '/register' ? 'Créer un compte' : 'Vos contacts')} | Carnet de cartes de visite
   link(rel='stylesheet' href='/css/styles.css')
   script(src='/js/site.js' defer)
+
+  meta(name="session-key" content=sessionState ? sessionState.key : "visitor")
+  meta(name="identity-key" content=sessionState ? sessionState.identity : "visitor")
+  meta(name="session-expires" content=sessionState ? sessionState.expiresAt : 0)

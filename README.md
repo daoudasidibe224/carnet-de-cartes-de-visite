@@ -4,7 +4,7 @@ Créez vos cartes de visite, découvrez celles des autres membres et gardez les 
 
 ## Fonctionnalités
 
-- Inscription avec email et mot de passe, nom facultatif, visibilité du mot de passe et déconnexion qui révoque la session.
+- Inscription avec email et mot de passe, nom facultatif replié dans le formulaire et modifiable au profil, visibilité du mot de passe et déconnexion qui révoque la session.
 - Création de plusieurs cartes, modification et suppression par leur propriétaire, sans doublon sur un double envoi.
 - Annuaire accessible aux membres connectés, recherche par nom, entreprise ou email et pagination de 12 cartes.
 - Bibliothèque personnelle, ajout sans doublon et retrait d’une carte.
@@ -19,6 +19,8 @@ Créez vos cartes de visite, découvrez celles des autres membres et gardez les 
 Node.js 22.16 ou supérieur, TypeScript strict, Express 5, Pug 3 et MongoDB avec Mongoose 9. Le client natif TypeScript gère le menu et la confirmation de suppression ; esbuild produit son script. Zod valide les formulaires. Les modèles définissent les données, les contrôleurs gèrent les parcours HTTP et les services regroupent les opérations transactionnelles sur les cartes et bibliothèques.
 
 Les mots de passe sont hachés avec bcrypt. Les sessions restent dans MongoDB avec `connect-mongo` ; la connexion renouvelle l’identifiant de session et la déconnexion la révoque. Les formulaires utilisent un jeton CSRF, les tentatives de connexion sont limitées et les cookies sont HTTP-only.
+
+Les pages relisent la session à l’activation de l’onglet, à son expiration et après une connexion ou déconnexion dans un autre onglet. Les anciens menus et contenus privés sont retirés avant de charger l’accès courant. Une vérification périodique complète cette synchronisation. Les brouillons non envoyés restent dans le stockage de leur onglet, sans mot de passe ni jeton, et sont restaurés seulement pour le même compte sur le même formulaire. Fermer l’onglet les efface. La session de compte dure trois jours.
 
 ## Installation locale
 
@@ -50,18 +52,18 @@ Si le port 27017 est déjà occupé, utilisez votre instance locale compatible o
 
 ## Scripts et vérifications
 
-| Commande | Usage |
-| --- | --- |
-| `npm run dev` | Relancer le serveur et recompiler le client lors des modifications |
-| `npm run build` | Compiler le serveur et le client |
-| `npm start` | Démarrer le serveur compilé |
-| `npm run lint` | Vérifier le code TypeScript |
-| `npm run typecheck` | Vérifier les types stricts |
-| `npm run test:e2e` | Vérifier les parcours desktop et mobile dans Chromium |
-| `npm test` | Exécuter les tests HTTP et MongoDB |
-| `npm run check` | Exécuter lint, types, compilation et tests |
+| Commande            | Usage                                                              |
+| ------------------- | ------------------------------------------------------------------ |
+| `npm run dev`       | Relancer le serveur et recompiler le client lors des modifications |
+| `npm run build`     | Compiler le serveur et le client                                   |
+| `npm start`         | Démarrer le serveur compilé                                        |
+| `npm run lint`      | Vérifier le code TypeScript                                        |
+| `npm run typecheck` | Vérifier les types stricts                                         |
+| `npm run test:e2e`  | Vérifier les parcours desktop et mobile dans Chromium              |
+| `npm test`          | Exécuter les tests HTTP et MongoDB                                 |
+| `npm run check`     | Exécuter lint, types, compilation et tests                         |
 
-`npm run dev` surveille le serveur et les sources du client. Les tests lancent un vrai replica set MongoDB temporaire via `mongodb-memory-server`. Le premier lancement télécharge le binaire et nécessite un accès réseau. Ils couvrent auth et CSRF, renouvellement et révocation des sessions, accès au profil, hachage, propriété des cartes, bibliothèque idempotente, nettoyage transactionnel, publication concurrente sans doublon, conflit d’édition et de notes, isolation des annotations privées, filtres, export JSON personnel, recherche littérale, pagination, export et persistance dans une nouvelle instance du serveur. La CI lance les mêmes contrôles et les parcours navigateur sous Node.js 22.
+`npm run dev` surveille le serveur et les sources du client. Les tests lancent un vrai replica set MongoDB temporaire via `mongodb-memory-server`. Le premier lancement télécharge le binaire et nécessite un accès réseau. Ils couvrent auth et CSRF, renouvellement et révocation des sessions, accès au profil, hachage, propriété des cartes, bibliothèque idempotente, nettoyage transactionnel, publication concurrente sans doublon, conflit d’édition et de notes, isolation des annotations privées, filtres, export JSON personnel, recherche littérale, pagination, export et persistance dans une nouvelle instance du serveur. Les parcours Chromium vérifient aussi les formulaires compacts, les erreurs de nom facultatif, la déconnexion entre onglets, le changement de compte et l’expiration. La CI lance les mêmes contrôles et les parcours navigateur sous Node.js 22.
 
 ## Publication et modifications concurrentes
 

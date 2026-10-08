@@ -12,9 +12,11 @@ import "./types";
 export function createApp({
   secret,
   store,
+  sessionDurationMs,
 }: {
   secret: string;
   store?: session.Store;
+  sessionDurationMs?: number;
 }) {
   if (!secret || secret.length < 32)
     throw new Error(
@@ -58,12 +60,28 @@ export function createApp({
         httpOnly: true,
         sameSite: "lax",
         secure: process.env.NODE_ENV === "production",
-        maxAge: 3 * 24 * 60 * 60 * 1000,
+        maxAge: sessionDurationMs ?? 3 * 24 * 60 * 60 * 1000,
       },
     }),
   );
-  app.use((req, res, next) => { res.set("Cache-Control", "no-store"); next(); });
+  app.use((req, res, next) => {
+    res.set("Cache-Control", "no-store");
+    next();
+  });
   app.use(checkUser);
+  function canonical(req: express.Request) {
+    return {
+      key: req.user
+        ? crypto
+            .createHmac("sha256", secret)
+            .update(req.sessionID)
+            .digest("hex")
+        : "visitor",
+      identity: req.user ? `account:${req.user.id}` : "visitor",
+      expiresAt: req.user ? (req.session.cookie.expires?.getTime() ?? 0) : 0,
+    };
+  }
+  app.get("/session", (req, res) => res.json(canonical(req)));
   app.use((req, res, next) => {
     if (!req.session.csrfToken)
       req.session.csrfToken = crypto.randomBytes(32).toString("hex");
@@ -72,6 +90,7 @@ export function createApp({
     delete req.session.notice;
     res.locals.errors = undefined;
     res.locals.currentPath = req.path;
+    res.locals.sessionState = canonical(req);
     res.locals.values = {};
     if (
       req.method === "POST" &&

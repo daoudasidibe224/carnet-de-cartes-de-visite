@@ -5,11 +5,13 @@ block content
     section.auth-panel
       p.eyebrow Nouveau carnet
       h1 Créer mon compte
-      p.muted Un email et un mot de passe suffisent. Vous compléterez vos coordonnées en créant une carte.
+      p.muted Vos coordonnées pourront être complétées dans le profil.
       form(action='/api/user/register' method='post')
         input(type='hidden' name='_csrf' value=csrfToken)
         +field('email', 'Adresse email', 'email', 'email', true)
         +field('password', 'Mot de passe (8 caractères minimum)', 'password', 'new-password', true)
-        +field('name', 'Nom (facultatif)', 'text', 'name', false)
+        details.optional-profile(open=Boolean(errors && errors.name))
+          summary Ajouter mon nom (facultatif)
+          +field('name', 'Nom (facultatif)', 'text', 'name', false)
         button.button.full(type='submit') Créer mon compte
       p.form-foot Déjà inscrit ? #[a(href='/login') Se connecter]

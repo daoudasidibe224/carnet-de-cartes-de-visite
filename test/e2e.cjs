@@ -30,6 +30,9 @@ fs.mkdirSync(results, { recursive: true });
     page.on("pageerror", (error) => errors.push(error.message));
   async function signup(page, name) {
     await page.goto(base + "/register");
+    await page
+      .getByText("Ajouter mon nom (facultatif)", { exact: true })
+      .click();
     await page.getByLabel("Nom (facultatif)", { exact: true }).fill(name);
     await page
       .getByLabel("Adresse email", { exact: true })
@@ -58,6 +61,13 @@ fs.mkdirSync(results, { recursive: true });
       await two.setViewportSize({ width, height: 900 });
       for (const route of ["/login", "/register", "/missing"]) {
         await two.goto(base + route);
+        if (width === 390 && ["/login", "/register"].includes(route)) {
+          const primary = await two
+            .locator("form button[type=submit]")
+            .boundingBox();
+          assert.ok(primary && primary.y + primary.height <= 844);
+        }
+
         assert.equal(
           await two.evaluate(
             () => document.documentElement.scrollWidth > innerWidth,
@@ -81,16 +91,67 @@ fs.mkdirSync(results, { recursive: true });
     });
     await signup(one, "Camille");
     await signup(two, "Alex");
-    const duplicate = await browser.newPage({ viewport: { width: 320, height: 844 } });
-    duplicate.on("pageerror", error => errors.push(error.message));
+    const duplicate = await browser.newPage({
+      viewport: { width: 320, height: 844 },
+    });
+    duplicate.on("pageerror", (error) => errors.push(error.message));
     await duplicate.goto(base + "/register");
+    await duplicate.locator("#email").fill("name-check@example.test");
+    await duplicate.locator("#password").fill("Password1234");
+    await duplicate
+      .getByText("Ajouter mon nom (facultatif)", { exact: true })
+      .click();
+    await duplicate.locator("#name").fill("x");
+    await duplicate
+      .locator("form")
+      .evaluate((form) => (form.noValidate = true));
+    await duplicate
+      .getByRole("button", { name: "Créer mon compte", exact: true })
+      .click();
+    await duplicate
+      .getByText("Le nom doit contenir de 2 à 80 caractères.", { exact: true })
+      .first()
+      .waitFor();
+    assert.equal(
+      await duplicate.locator("details.optional-profile").getAttribute("open"),
+      "",
+    );
+    assert.equal(
+      await duplicate.locator("#name").getAttribute("aria-invalid"),
+      "true",
+    );
+    assert.equal(
+      await duplicate.evaluate(() =>
+        document.activeElement?.getAttribute("role"),
+      ),
+      "alert",
+    );
+    await duplicate.locator("#name").fill("");
     await duplicate.locator("#email").fill("alex@example.test");
     await duplicate.locator("#password").fill("Password1234");
-    await duplicate.getByRole("button", { name: "Créer mon compte", exact: true }).click();
-    await duplicate.getByText("Cet email est déjà utilisé.", { exact: true }).first().waitFor();
-    assert.equal(await duplicate.evaluate(() => document.activeElement?.getAttribute("role")), "alert");
-    assert.equal(await duplicate.locator("#email").getAttribute("aria-invalid"), "true");
-    assert.equal(await duplicate.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+    await duplicate
+      .getByRole("button", { name: "Créer mon compte", exact: true })
+      .click();
+    await duplicate
+      .getByText("Cet email est déjà utilisé.", { exact: true })
+      .first()
+      .waitFor();
+    assert.equal(
+      await duplicate.evaluate(() =>
+        document.activeElement?.getAttribute("role"),
+      ),
+      "alert",
+    );
+    assert.equal(
+      await duplicate.locator("#email").getAttribute("aria-invalid"),
+      "true",
+    );
+    assert.equal(
+      await duplicate.evaluate(
+        () => document.documentElement.scrollWidth > innerWidth,
+      ),
+      false,
+    );
     await duplicate.close();
 
     await one
@@ -228,10 +289,16 @@ fs.mkdirSync(results, { recursive: true });
         exact: true,
       })
       .waitFor();
-    await two.getByRole("link", { name: "Organiser le contact Camille Martin" }).click();
+    await two
+      .getByRole("link", { name: "Organiser le contact Camille Martin" })
+      .click();
     await two.locator("#note").fill("Modification annulée");
     await two.getByRole("link", { name: "Annuler", exact: true }).click();
-    await two.getByText("Rencontrée à la conférence TypeScript. À rappeler lundi.", { exact: true }).waitFor();
+    await two
+      .getByText("Rencontrée à la conférence TypeScript. À rappeler lundi.", {
+        exact: true,
+      })
+      .waitFor();
     await two.locator("#search").fill("TypeScript");
     await two.locator("#tag-filter").selectOption("dev");
     await two.getByLabel("Favoris uniquement", { exact: true }).check();
@@ -434,6 +501,104 @@ fs.mkdirSync(results, { recursive: true });
     await two.waitForURL("**/login");
     await two.goto(base + "/businessCard");
     await two.waitForURL("**/login");
+    // Les anciennes pages privées suivent les changements de session entre onglets.
+    await one.goto(base + "/businessCard");
+    const sibling = await desktop.newPage();
+    sibling.on("pageerror", (error) => errors.push(error.message));
+    await sibling.goto(base + "/businessCard/mine");
+    await one.getByRole("button", { name: "Déconnexion", exact: true }).click();
+    await one.waitForURL("**/login");
+    await sibling.waitForURL("**/login", { timeout: 10000 });
+    assert.equal(
+      await sibling
+        .getByRole("link", { name: "Mon profil", exact: true })
+        .count(),
+      0,
+    );
+    await one.locator("#email").fill("alex@example.test");
+    await one.locator("#password").fill("Password1234");
+    await one
+      .getByRole("button", { name: "Ouvrir mon carnet", exact: true })
+      .click();
+    await one.waitForURL("**/businessCard");
+    await sibling.waitForURL("**/businessCard", { timeout: 10000 });
+    await sibling.getByText("Alex Rivière", { exact: true }).waitFor();
+    await sibling.goto(
+      base + (await one.locator("a[href^='/api/user/']").getAttribute("href")),
+    );
+    await sibling
+      .getByLabel("Nom complet", { exact: true })
+      .fill("Brouillon personnel Alex");
+    await one.getByRole("button", { name: "Déconnexion", exact: true }).click();
+    await one.waitForURL("**/login");
+    await sibling.waitForURL("**/login", { timeout: 10000 });
+    await one.locator("#email").fill("camille@example.test");
+    await one.locator("#password").fill("Password1234");
+    await one
+      .getByRole("button", { name: "Ouvrir mon carnet", exact: true })
+      .click();
+    await one.waitForURL("**/businessCard");
+    await sibling.waitForURL("**/businessCard", { timeout: 10000 });
+    await sibling.getByText("Camille", { exact: true }).waitFor();
+    assert.equal(
+      await sibling.getByText("Alex Rivière", { exact: true }).count(),
+      0,
+    );
+    assert.ok(
+      await sibling.evaluate(() =>
+        Object.keys(sessionStorage).some(
+          (key) =>
+            key.startsWith("draft:") &&
+            sessionStorage.getItem(key)?.includes("Brouillon personnel Alex"),
+        ),
+      ),
+    );
+    await one.getByRole("button", { name: "Déconnexion", exact: true }).click();
+    await one.waitForURL("**/login");
+    await sibling.waitForURL("**/login", { timeout: 10000 });
+    await one.locator("#email").fill("alex@example.test");
+    await one.locator("#password").fill("Password1234");
+    await one
+      .getByRole("button", { name: "Ouvrir mon carnet", exact: true })
+      .click();
+    await one.waitForURL("**/businessCard");
+    await sibling.waitForURL("**/businessCard", { timeout: 10000 });
+    await sibling.goto(
+      base + (await one.locator("a[href^='/api/user/']").getAttribute("href")),
+    );
+    assert.equal(
+      await sibling.getByLabel("Nom complet", { exact: true }).inputValue(),
+      "Brouillon personnel Alex",
+    );
+    await sibling.close();
+    const shortApp = createApp({
+        secret: "e".repeat(48),
+        store,
+        sessionDurationMs: 1600,
+      }),
+      shortServer = shortApp.listen(0, "127.0.0.1");
+    await new Promise((resolve) => shortServer.on("listening", resolve));
+    const shortUrl = `http://127.0.0.1:${shortServer.address().port}`;
+    const shortContext = await browser.newContext({
+        viewport: { width: 390, height: 844 },
+      }),
+      expiring = await shortContext.newPage();
+    await expiring.goto(shortUrl + "/login");
+    await expiring.locator("#email").fill("alex@example.test");
+    await expiring.locator("#password").fill("Password1234");
+    await expiring
+      .getByRole("button", { name: "Ouvrir mon carnet", exact: true })
+      .click();
+    await expiring.waitForURL("**/businessCard");
+    await expiring.waitForURL("**/login", { timeout: 10000 });
+    assert.equal(
+      await expiring
+        .getByRole("link", { name: "Mon profil", exact: true })
+        .count(),
+      0,
+    );
+    await shortContext.close();
+    await new Promise((resolve) => shortServer.close(resolve));
     assert.deepEqual(errors, []);
     console.log(
       JSON.stringify(
@@ -458,6 +623,7 @@ fs.mkdirSync(results, { recursive: true });
             "delete cancel and confirm",
             "library cleanup",
             "logout",
+            "cross-tab logout login account replacement and expiration",
           ],
           pageErrors: errors,
         },
