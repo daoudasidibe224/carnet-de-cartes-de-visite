@@ -1,30 +1,58 @@
-include includes/head.pug
-include ./includes/navBar.pug
-section.hero.is-primary.is-fullheight-with-navbar
-  .hero-body
-    .container
-      .columns.is-centered
-        .column.is-5-tablet.is-4-desktop.is-3-widescreen
-          p Cartes de visite disponible non échancées
-          if (businessCards) 
-            each businessCard, key in businessCards
-              div(class="notification is-info" id="#{key}")
-                form.form() 
-                  if(businessCard.name)
-                    p Nom: #{businessCard.name}
-                  if(businessCard.companyName)
-                    p(id="#{key}") Entreprise: #{businessCard.companyName}
-                  p Email: #{businessCard.email}
-                  if(businessCard.tel)
-                    p Tel: #{businessCard.tel}
-                  br
-                  
-                  p.has-text-right
-                    button.button 
-                      i.fa.fa-bookmark
-
-include includes/footer.pug
-
-
-
-
+extends layout
+block content
+  - const heading = mode === 'mine' ? 'Mes cartes de visite' : mode === 'saved' ? 'Ma bibliothèque' : 'De nouveaux contacts à découvrir'
+  - const description = mode === 'mine' ? 'Présentez vos activités. Vous choisissez les coordonnées de chaque carte.' : mode === 'saved' ? 'Les cartes que vous avez gardées, à retrouver ou à exporter quand vous en avez besoin.' : 'Parcourez les cartes publiées par les autres membres et gardez celles qui vous intéressent.'
+  - const basePath = mode === 'mine' ? '/businessCard/mine' : mode === 'saved' ? '/businessCard/savedBusinessCard' : '/businessCard'
+  .page-heading.heading-with-action
+    div
+      p.eyebrow= mode === 'directory' ? 'L’annuaire des membres' : 'Votre carnet'
+      h1= heading
+      p.lead= description
+    a.button(href='/businessCard/addBusinessCard') Créer une carte
+  .directory-toolbar
+    form.search-form(action=basePath method='get' role='search')
+      label(for='search') Rechercher une carte
+      .search-controls
+        input#search(type='search' name='q' value=q maxlength='100' placeholder='Nom, entreprise ou email')
+        button.button.secondary(type='submit') Rechercher
+        if q
+          a.text-link(href=basePath) Effacer
+    p.result-count #{total} #{total > 1 ? 'cartes' : 'carte'}
+  if businessCards.length
+    .cards-grid
+      each card, index in businessCards
+        article.contact-card(class=index % 3 === 1 ? 'tone-sage' : index % 3 === 2 ? 'tone-sand' : 'tone-cream' aria-labelledby=`name-${card.id}`)
+          .card-top
+            span.avatar(aria-hidden='true')= card.name.slice(0,1).toUpperCase()
+            span.card-company= card.companyName || 'Contact indépendant'
+          h2(id=`name-${card.id}`)= card.name
+          .card-details
+            a(href=`mailto:${card.email}`)= card.email
+            if card.tel
+              a(href=`tel:${card.tel}`)= card.tel
+            else
+              span.muted Téléphone non renseigné
+          .card-actions
+            a.download-link(href=`/businessCard/${card.id}/vcard` aria-label=`Exporter la carte de ${card.name}`) Exporter .vcf
+            if mode === 'mine'
+              a(href=`/businessCard/${card.id}/edit` aria-label=`Modifier la carte de ${card.name}`) Modifier
+              form(action=`/businessCard/${card.id}/delete` method='post' data-confirm-delete)
+                input(type='hidden' name='_csrf' value=csrfToken)
+                button.card-action.danger-text(type='submit' aria-label=`Supprimer la carte de ${card.name}`) Supprimer
+            else
+              form(action=`/businessCard/${card.id}/${mode === 'saved' ? 'remove' : 'save'}` method='post')
+                input(type='hidden' name='_csrf' value=csrfToken)
+                button.card-action(type='submit' aria-label=`${mode === 'saved' ? 'Retirer' : 'Garder'} la carte de ${card.name}`)= mode === 'saved' ? 'Retirer' : 'Garder la carte'
+    if pages > 1
+      nav.pagination(aria-label='Pages de cartes')
+        if page > 1
+          a.button.secondary(href=`${basePath}?q=${encodeURIComponent(q)}&page=${page-1}`) Page précédente
+        span Page #{page} sur #{pages}
+        if page < pages
+          a.button.secondary(href=`${basePath}?q=${encodeURIComponent(q)}&page=${page+1}`) Page suivante
+  else
+    section.empty-state
+      .empty-icon(aria-hidden='true') C
+      h2= q ? 'Aucune carte pour cette recherche' : mode === 'mine' ? 'Votre première carte vous attend.' : mode === 'saved' ? 'Gardez les contacts qui comptent.' : 'Les prochaines rencontres arrivent bientôt.'
+      p= q ? 'Essayez un autre nom, une entreprise ou une adresse email.' : mode === 'mine' ? 'Créez une carte pour présenter votre activité aux autres membres.' : mode === 'saved' ? 'Ouvrez l’annuaire et ajoutez une carte à votre bibliothèque.' : 'Aucune carte publiée par un autre membre pour le moment.'
+      a.button.secondary(href=q ? basePath : mode === 'saved' ? '/businessCard' : '/businessCard/addBusinessCard')= q ? 'Voir toutes les cartes' : mode === 'saved' ? 'Découvrir les cartes' : 'Créer ma carte'

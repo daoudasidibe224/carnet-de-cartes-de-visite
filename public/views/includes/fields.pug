@@ -1,0 +1,11 @@
+mixin field(name, label, type, autocomplete, required)
+  .field
+    label(for=name)= label
+    input(id=name name=name type=type autocomplete=autocomplete required=required value=type === 'password' ? undefined : values[name] aria-invalid=errors && errors[name] ? 'true' : undefined aria-describedby=errors && errors[name] ? `${name}-error` : undefined maxlength=name === 'name' ? 80 : name === 'email' ? 254 : name === 'companyName' ? 120 : name === 'tel' ? 30 : 72 minlength=name === 'password' ? 8 : name === 'name' ? 2 : undefined)
+    if errors && errors[name]
+      p.field-error(id=`${name}-error`)= errors[name]
+mixin contactFields()
+  +field('name', 'Nom complet', 'text', 'name', true)
+  +field('companyName', 'Entreprise (facultatif)', 'text', 'organization', false)
+  +field('email', 'Adresse email', 'email', 'email', true)
+  +field('tel', 'Téléphone (facultatif)', 'tel', 'tel', false)

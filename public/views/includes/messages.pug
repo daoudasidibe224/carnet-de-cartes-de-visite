@@ -1,10 +1,8 @@
-if (errors) 
-  div(class="notification is-warning")
-    button(class="delete is-small")
-    each error, key in errors
-      p(id="#{key}") #{error}
-
-if (businessCard) 
-  div(class="notification is-success")
-    button(class="delete is-small")
-    p Carte de visite ajoutée
+if notice
+  .notice(role='status')= notice
+if errors && Object.keys(errors).length
+  .error-summary(role='alert')
+    p Vérifiez les champs indiqués avant de continuer.
+    ul
+      each message in errors
+        li= message

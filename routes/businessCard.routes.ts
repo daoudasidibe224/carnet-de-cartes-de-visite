@@ -1,0 +1,17 @@
+import { Router } from "express";
+const router = Router();
+import * as card from "../controllers/businessCard.controller";
+import { requireAuth } from "../middleware/auth.middleware";
+router.use(requireAuth);
+router.get("/", card.getAllbusinessCard);
+router.get("/addBusinessCard", card.newCard);
+router.post("/addBusinessCard", card.addBusinessCard);
+router.get("/savedBusinessCard", card.getMySavedBusinessCard);
+router.get("/mine", card.getMyCards);
+router.get("/:id/edit", card.editCard);
+router.post("/:id/edit", card.updateCard);
+router.post("/:id/delete", card.deleteCard);
+router.post("/:id/save", card.saveToLibrary);
+router.post("/:id/remove", card.removeFromLibrary);
+router.get("/:id/vcard", card.exportCard);
+export default router;

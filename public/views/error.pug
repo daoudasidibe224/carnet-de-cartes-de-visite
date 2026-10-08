@@ -1,0 +1,7 @@
+extends layout
+block content
+  section.empty-state.error-page
+    p.eyebrow Carnet de cartes de visite
+    h1= title
+    p= message
+    a.button(href=user ? '/businessCard' : '/login')= user ? 'Revenir au carnet' : 'Revenir à la connexion'

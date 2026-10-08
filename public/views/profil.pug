@@ -1,45 +1,20 @@
-include includes/head.pug
-include ./includes/navBar.pug
-section.hero.is-primary.is-fullheight-with-navbar
-  .hero-body
-    .container
-      .columns.is-centered
-        .column.is-5-tablet.is-4-desktop.is-3-widescreen
-          h1.subtitle.has-text-centered Ma carte de visite
-          form.box(action='' method='POST')
-            include ./includes/messages.pug
-            .field
-              label.label(for='name') Nom 
-              .control.has-icons-left
-                input.input(type='text' name='name' id='name' value= typeof user.name != 'undefined' ? user.name : '' )
-                span.icon.is-small.is-left
-                  i.fa.fa-user
-            .field
-              label.label(for='companyName') Nom de l'entreprise 
-              .control.has-icons-left
-                input.input(type='text' name='companyName' value= typeof user.companyName != 'undefined' ? user.companyName : '' id='companyName')
-                span.icon.is-small.is-left
-                  i.fa.fa-home
-            .field
-              label.label(for='email') Email
-              .control.has-icons-left
-                input.input(type='email'  name='email' id='email' value= typeof user.email != 'undefined' ? user.email : '' required)
-                span.icon.is-small.is-left
-                  i.fa.fa-envelope
-            .field
-              label.label(for='tel') Telephone
-              .control.has-icons-left
-                input.input(type='tel' name='tel' id='tel' value= typeof user.tel != 'undefined' ? user.tel : '')
-                span.icon.is-small.is-left
-                  i.fa.fa-phone
-            .field
-              p.has-text-centered
-                button.button.is-primary Enregister
-
-include includes/footer.pug
-
-
-
-
-
-
+extends layout
+include includes/fields
+block content
+  .page-heading
+    p.eyebrow Mon compte
+    h1 Votre profil
+    p.lead Ces informations servent à préremplir vos prochaines cartes. Vos cartes existantes gardent leurs coordonnées.
+  .profile-layout
+    aside.quiet-panel
+      .avatar(aria-hidden='true')= user.name.slice(0,1).toUpperCase()
+      h2= user.name
+      p.muted Profil privé
+      p Votre email sert aussi à vous connecter. Le mot de passe reste inchangé lorsque vous enregistrez le profil.
+      a.text-link(href='/businessCard/mine') Voir mes cartes →
+    section.form-panel
+      h2 Mes coordonnées
+      form(action='/api/user/profile' method='post')
+        input(type='hidden' name='_csrf' value=csrfToken)
+        +contactFields()
+        button.button(type='submit') Enregistrer mon profil

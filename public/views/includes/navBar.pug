@@ -1,50 +1,18 @@
-nav.navbar
-  .navbar-brand
-    a.navbar-item(href='/')
-      img(src='/images/epitech.png')
-    .navbar-burger.burger(data-target='navMenubd-example')
-      span
-      span
-      span
-  #navMenubd-example.navbar-menu
-    if (user)
-      .navbar-start
-        a.navbar-item(href='/businessCard')
-          span
-            i.fa.fa-id-card
-          span &nbsp; Cartes de visite
-        a.navbar-item(href='/businessCard/addBusinessCard')
-          span 
-            i.fa.fa-plus
-          span &nbsp; Ajouter
-        a.navbar-item(href='/businessCard/savedBusinessCard')
-          span 
-            i.fa.fa-bookmark
-          span &nbsp; Bibliothèque
-    .navbar-end
-      if (!user)
-        .navbar-item
-          .field.is-grouped
-            p.control
-              a.button.is-info(href='/login')
-                span.icon
-                  i.fa.fa-user
-                span Connexion
-            p.control
-              a.button.is-primary(href='/register')
-                span.icon
-                  i.fa.fa-download
-                span Inscription
-      if (user)         
-        .navbar-item
-          .field.is-grouped
-            p.control
-              a.button.is-info(href=`/api/user/${user.id}`)
-                span.icon
-                  i.fa.fa-user
-                span Profil
-            p.control
-              a.button.is-primary(href='/api/user/logout')
-                span.icon
-                  i.fa.fa-download
-                span Déconnexion
+header.site-header
+  .header-inner
+    a.brand(href=user ? '/businessCard' : '/login')
+      span.brand-mark(aria-hidden='true') C
+      span Carnet de cartes de visite
+    button#menu-toggle.menu-toggle(type='button' aria-controls='site-nav' aria-expanded='false' aria-label='Ouvrir le menu') Menu
+    nav#site-nav(aria-label='Navigation principale')
+      if user
+        a(class=currentPath === '/businessCard' ? 'active' : '' href='/businessCard') Découvrir
+        a(class=currentPath === '/businessCard/savedBusinessCard' ? 'active' : '' href='/businessCard/savedBusinessCard') Ma bibliothèque
+        a(class=currentPath === '/businessCard/mine' ? 'active' : '' href='/businessCard/mine') Mes cartes
+        a(class=currentPath.startsWith('/api/user') ? 'active' : '' href=`/api/user/${user.id}`) Mon profil
+        form(action='/api/user/logout' method='post')
+          input(type='hidden' name='_csrf' value=csrfToken)
+          button.nav-logout(type='submit') Déconnexion
+      else
+        a(href='/login' class=currentPath === '/login' ? 'active' : '') Connexion
+        a(href='/register' class=currentPath === '/register' ? 'active' : '') Créer un compte

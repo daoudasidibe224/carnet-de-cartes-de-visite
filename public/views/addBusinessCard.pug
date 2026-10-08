@@ -1,48 +1,21 @@
-include includes/head.pug
-include ./includes/navBar.pug
-section.hero.is-primary.is-fullheight-with-navbar
-  .hero-body
-    .container
-      .columns.is-centered
-        .column.is-5-tablet.is-4-desktop.is-3-widescreen
-          h1.subtitle.has-text-centered Ajouter une carte de visite
-          form.box(action='/businessCard/addBusinessCard' method='POST')
-            include ./includes/messages.pug
-            input(type="hidden", value=user name="user")
-            .field
-              label.label(for='name') Nom 
-              .control.has-icons-left
-                input.input(type='text' name='name' id='name' value= typeof name != 'undefined' ? name : '' )
-                span.icon.is-small.is-left
-                  i.fa.fa-user
-            .field
-              label.label(for='companyName') Nom de l'entreprise 
-              .control.has-icons-left
-                input.input(type='text' name='companyName' value= typeof companyName != 'undefined' ? companyName : '' id='companyName')
-                span.icon.is-small.is-left
-                  i.fa.fa-home
-            .field
-              label.label(for='email') Email
-              .control.has-icons-left
-                input.input(type='email'  name='email' id='email' value= typeof email != 'undefined' ? email : '' required)
-                span.icon.is-small.is-left
-                  i.fa.fa-envelope
-            .field
-              label.label(for='tel') Telephone
-              .control.has-icons-left
-                input.input(type='tel' name='tel' id='tel' value= typeof tel != 'undefined' ? tel : '')
-                span.icon.is-small.is-left
-                  i.fa.fa-phone
-            .field
-              p.has-text-centered
-                button.button.is-primary Ajouter dans 
-                  span &nbsp;
-                    i.fa.fa-bookmark
-
-include includes/footer.pug
-
-
-
-
-
-
+extends layout
+include includes/fields
+block content
+  .page-heading
+    p.eyebrow Mes cartes
+    h1= card ? 'Modifier la carte' : 'Une carte pour vous présenter'
+    p.lead Choisissez les coordonnées que les autres membres pourront découvrir, enregistrer et exporter.
+  .profile-layout
+    aside.quiet-panel
+      h2 Une carte, un usage.
+      p Vous pouvez créer plusieurs cartes pour vos différentes activités.
+      p.muted La carte sera visible dans l’annuaire des membres connectés dès son enregistrement.
+      a.text-link(href='/businessCard/mine') Revenir à mes cartes →
+    section.form-panel
+      h2 Coordonnées de la carte
+      form(action=card ? `/businessCard/${card.id}/edit` : '/businessCard/addBusinessCard' method='post')
+        input(type='hidden' name='_csrf' value=csrfToken)
+        +contactFields()
+        .form-actions
+          button.button(type='submit')= card ? 'Enregistrer la carte' : 'Publier ma carte'
+          a.button.secondary(href='/businessCard/mine') Annuler

@@ -1,56 +1,21 @@
-include includes/head.pug
-include ./includes/navBar.pug
-section.hero.is-primary.is-fullheight-with-navbar
-  .hero-body
-    .container
-      .columns.is-centered
-        .column.is-5-tablet.is-4-desktop.is-3-widescreen
-          form.box(action='/api/user/register' method='POST')
-            include ./includes/messages.pug
-            .field
-              label.label(for='name') Nom 
-              .control.has-icons-left
-                input.input(type='text' name='name' id='name' value= typeof name != 'undefined' ? name : '' required)
-                span.icon.is-small.is-left
-                  i.fa.fa-user
-            .field
-              label.label(for='companyName') Nom de l'entreprise 
-              .control.has-icons-left
-                input.input(type='text' name='companyName' value= typeof companyName != 'undefined' ? companyName : '' id='companyName')
-                span.icon.is-small.is-left
-                  i.fa.fa-home
-            .field
-              label.label(for='email') Email
-              .control.has-icons-left
-                input.input(type='email'  name='email' id='email' value= typeof email != 'undefined' ? email : '' required)
-                span.icon.is-small.is-left
-                  i.fa.fa-envelope
-            .field
-              label.label(for='tel') Telephone
-              .control.has-icons-left
-                input.input(type='tel' name='tel' id='tel' value= typeof tel != 'undefined' ? tel : '')
-                span.icon.is-small.is-left
-                  i.fa.fa-phone
-            .field
-              label.label(for='password') Mot de passe
-              .control.has-icons-left
-                input.input(type='password' name='password' id='password' value= typeof password != 'undefined' ? password : '' required)
-                span.icon.is-small.is-left
-                  i.fa.fa-lock
-            //- .field
-              label.label(for='confirmPassword') Mot de passe
-              .control.has-icons-left
-                input.input(type='password' name='confirmPassword' id='confirmPassword' value= typeof confirmPassword != 'undefined' ? confirmPassword : ''  required)
-                span.icon.is-small.is-left
-                  i.fa.fa-lock
-            .field
-              p.has-text-centered
-                button.button.is-primary S'inscrire
-
-include includes/footer.pug
-
-
-
-
-
-
+extends layout
+include includes/fields
+block content
+  .auth-layout
+    section.auth-intro
+      p.eyebrow Faites connaissance
+      h1 Votre carnet commence ici.
+      p.lead Renseignez votre profil, puis choisissez les coordonnées à publier sur vos cartes de visite.
+      .quiet-panel
+        h2 Vous choisissez ce que vous partagez.
+        p Le profil reste privé. Les cartes que vous publiez sont accessibles aux membres connectés et peuvent être enregistrées ou exportées.
+      p.small Vous pourrez créer plusieurs cartes et modifier votre profil à tout moment.
+    section.auth-panel
+      h2 Créer mon compte
+      form(action='/api/user/register' method='post')
+        input(type='hidden' name='_csrf' value=csrfToken)
+        +contactFields()
+        +field('password', 'Mot de passe (8 caractères minimum)', 'password', 'new-password', true)
+        +field('confirmPassword', 'Confirmer le mot de passe', 'password', 'new-password', true)
+        button.button.full(type='submit') Créer mon compte
+      p.form-foot Déjà inscrit ? #[a(href='/login') Se connecter]

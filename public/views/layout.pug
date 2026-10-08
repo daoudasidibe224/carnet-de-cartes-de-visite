@@ -1,0 +1,16 @@
+doctype html
+html(lang='fr')
+  include includes/head
+  body
+    a.skip-link(href='#contenu') Aller au contenu
+    include includes/navBar
+    main#contenu
+      include includes/messages
+      block content
+    include includes/footer
+    dialog#delete-dialog(aria-labelledby='delete-title')
+      h2#delete-title Supprimer cette carte ?
+      p Elle sera retirée de l’annuaire et des bibliothèques des autres contacts.
+      .dialog-actions
+        button.button.secondary#delete-cancel(type='button') Annuler
+        button.button.danger#delete-confirm(type='button') Supprimer la carte
