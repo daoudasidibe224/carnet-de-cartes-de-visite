@@ -111,6 +111,7 @@ const expectedSession = sessionMeta?.content ?? "visitor";
 const expectedIdentity = identityMeta?.content ?? "visitor";
 let checking = false,
   navigating = false,
+  recheckPending = false,
   dirty = false;
 document.addEventListener("input", () => {
   dirty = true;
@@ -120,7 +121,11 @@ const channel =
     ? new BroadcastChannel("session-state")
     : undefined;
 async function checkSession() {
-  if (checking || navigating) return;
+  if (navigating) return;
+  if (checking) {
+    recheckPending = true;
+    return;
+  }
   checking = true;
   try {
     const response = await fetch("/session", {
@@ -179,6 +184,10 @@ async function checkSession() {
     /* Une coupure réseau ne détruit pas la page ni le brouillon. */
   } finally {
     checking = false;
+    if (recheckPending && !navigating) {
+      recheckPending = false;
+      void checkSession();
+    }
   }
 }
 channel?.addEventListener("message", () => {
@@ -197,11 +206,18 @@ document.addEventListener("visibilitychange", () => {
 window.addEventListener("session-ended", () => {
   void checkSession();
 });
-const interval = window.setInterval(() => {
-  if (!document.hidden) void checkSession();
-}, 5000);
+let interval: number | undefined;
+function startPolling() {
+  if (interval !== undefined) return;
+  interval = window.setInterval(() => {
+    if (!document.hidden) void checkSession();
+  }, 5000);
+}
+startPolling();
+window.addEventListener("pageshow", startPolling);
 window.addEventListener("pagehide", () => {
   clearInterval(interval);
+  interval = undefined;
 });
 const deadline = Number(
   document.querySelector<HTMLMetaElement>('meta[name="session-expires"]')

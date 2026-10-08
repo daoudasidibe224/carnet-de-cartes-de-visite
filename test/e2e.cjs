@@ -529,9 +529,30 @@ fs.mkdirSync(results, { recursive: true });
     await sibling
       .getByLabel("Nom complet", { exact: true })
       .fill("Brouillon personnel Alex");
+    let releaseSession, sessionCaptured;
+    const heldSession = new Promise((resolve) => {
+        releaseSession = resolve;
+      }),
+      capturedSession = new Promise((resolve) => {
+        sessionCaptured = resolve;
+      });
+    let heldOnce = false;
+    await sibling.route("**/session", async (route) => {
+      if (heldOnce) return route.continue();
+      heldOnce = true;
+      const response = await route.fetch();
+      sessionCaptured();
+      await heldSession;
+      await route.fulfill({ response });
+    });
+    await sibling.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await capturedSession;
+
     await one.getByRole("button", { name: "Déconnexion", exact: true }).click();
     await one.waitForURL("**/login");
-    await sibling.waitForURL("**/login", { timeout: 10000 });
+    await sibling.evaluate(() => window.dispatchEvent(new Event("focus")));
+    releaseSession();
+    await sibling.waitForURL("**/login", { timeout: 2000 });
     await one.locator("#email").fill("camille@example.test");
     await one.locator("#password").fill("Password1234");
     await one
