@@ -81,3 +81,19 @@ window.addEventListener("pageshow", () => {
   approved = false;
   pending = undefined;
 });
+
+for (const button of document.querySelectorAll<HTMLButtonElement>(
+  "[data-password-toggle]",
+)) {
+  const field = document.getElementById(button.dataset.passwordToggle || "");
+  if (!(field instanceof HTMLInputElement)) continue;
+  button.addEventListener("click", () => {
+    const visible = field.type === "password";
+    field.type = visible ? "text" : "password";
+    button.setAttribute("aria-pressed", String(visible));
+    button.textContent = visible
+      ? "Masquer le mot de passe"
+      : "Afficher le mot de passe";
+  });
+}
+document.querySelector<HTMLElement>("[role='alert']")?.focus();

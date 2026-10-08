@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import ContactAnnotation from "../models/contactAnnotation.model";
+import type { Annotation } from "../shared/contracts";
 import CardCreation from "../models/cardCreation.model";
 import { isDuplicate } from "../utils/errors.utils";
 import type { Contact } from "../shared/contracts";
@@ -12,9 +14,10 @@ export async function deleteOwnedCard(id: string, userId: string) {
     if (!card) return false;
     await User.updateMany(
       { library: card.id },
-      { $pull: { library: card.id } },
+      { $pull: { library: card.id }, $inc: { libraryRevision: 1 } },
       { session },
     );
+    await ContactAnnotation.deleteMany({ cardId: card.id }, { session });
     return true;
   });
 }
@@ -81,3 +84,58 @@ export async function createContactCard(
   }
 }
 export class CardConflict extends Error {}
+
+export async function removeContact(id: string, userId: string) {
+  await mongoose.connection.transaction(async (session) => {
+    await User.updateOne(
+      { _id: userId },
+      { $pull: { library: id }, $inc: { libraryRevision: 1 } },
+      { session },
+    );
+    await ContactAnnotation.deleteOne({ userId, cardId: id }, { session });
+  });
+}
+export async function organizeContact(
+  id: string,
+  userId: string,
+  revision: number,
+  values: Annotation,
+) {
+  return mongoose.connection.transaction(async (session) => {
+    const user = await User.findOne({ _id: userId, library: id }).session(
+      session,
+    );
+    const card = await Card.findById(id).session(session);
+    if (!user || !card) return false;
+    await User.updateOne(
+      { _id: userId },
+      { $inc: { libraryRevision: 1 } },
+      { session },
+    );
+    await Card.updateOne(
+      { _id: id },
+      { $set: { updatedAt: new Date() } },
+      { session },
+    );
+    const previous = await ContactAnnotation.findOne({
+      userId,
+      cardId: id,
+    }).session(session);
+    if (previous ? previous.__v !== revision : revision !== -1)
+      throw new CardConflict(
+        "Vos notes ont changé dans un autre onglet. Relisez-les avant d’enregistrer à nouveau.",
+      );
+    if (previous) {
+      await ContactAnnotation.updateOne(
+        { _id: previous.id, __v: revision },
+        { $set: values, $inc: { __v: 1 } },
+        { session },
+      );
+    } else {
+      await ContactAnnotation.create([{ userId, cardId: id, ...values }], {
+        session,
+      });
+    }
+    return true;
+  });
+}

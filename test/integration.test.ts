@@ -7,6 +7,7 @@ import request from "supertest";
 import MongoStore from "connect-mongo";
 import { createApp } from "../app";
 import User from "../models/user.model";
+import ContactAnnotation from "../models/contactAnnotation.model";
 import CardCreation from "../models/cardCreation.model";
 import Card from "../models/businessCard.model";
 let mongo: MongoMemoryReplSet,
@@ -80,7 +81,12 @@ async function post(
 before(async () => {
   mongo = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
   await mongoose.connect(mongo.getUri(), { serverSelectionTimeoutMS: 1000 });
-  await Promise.all([User.init(), Card.init(), CardCreation.init()]);
+  await Promise.all([
+    User.init(),
+    Card.init(),
+    CardCreation.init(),
+    ContactAnnotation.init(),
+  ]);
   store = MongoStore.create({ client: mongoose.connection.getClient() });
   app = createApp({ secret: "x".repeat(48), store });
 });

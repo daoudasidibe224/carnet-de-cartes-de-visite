@@ -1,0 +1,27 @@
+extends layout
+block content
+  .page-heading
+    p.eyebrow Notes privées
+    h1= card.name
+    p.lead Ces informations restent dans votre carnet. Les autres membres ne les voient pas.
+  section.form-panel
+    if typeof latestNote !== 'undefined'
+      details
+        summary Voir la note actuellement enregistrée
+        p.private-note= latestNote || 'Aucune note.'
+    form(action=`/businessCard/${card.id}/organize` method='post')
+      input(type='hidden' name='_csrf' value=csrfToken)
+      input(type='hidden' name='revision' value=revision)
+      .field
+        label(for='note') Note personnelle
+        textarea#note(name='note' maxlength='2000' rows='6')= values.note
+      .field
+        label(for='tags') Étiquettes
+        input#tags(name='tags' maxlength='207' value=values.tags aria-describedby='tags-help' placeholder='design, à rappeler')
+        p#tags-help.muted Jusqu’à 8 étiquettes, séparées par des virgules. 24 caractères par étiquette.
+      label.favorite-checkbox
+        input(type='checkbox' name='favorite' checked=values.favorite)
+        | Contact favori
+      .form-actions
+        button.button(type='submit') Enregistrer mes notes
+        a.text-link(href='/businessCard/savedBusinessCard') Annuler

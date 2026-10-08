@@ -1,20 +1,27 @@
-header.site-header
+header.site-header.editorial-header
   .masthead-meta
     span Répertoire personnel
     span Coordonnées à partager
   .header-inner
-    a.brand(href=user ? '/businessCard' : '/login')
-      span Carnet de cartes de visite
-    button#menu-toggle.menu-toggle(type='button' aria-controls='site-nav' aria-expanded='false' aria-label='Ouvrir le menu') Menu
-    nav#site-nav(aria-label='Navigation principale')
+    a.brand(href=user ? '/businessCard' : '/login') Carnet de cartes de visite
+    button#menu-toggle.menu-toggle(type='button' aria-controls='site-nav' aria-expanded='false' aria-label='Ouvrir le menu') Rubriques
+  .editorial-index
+    .index-caption
+      span Rubriques du carnet
+      if user
+        small= user.name
+      else
+        small Votre espace personnel
+    nav#site-nav(aria-label='Rubriques du répertoire')
       if user
         a(class=currentPath === '/businessCard' ? 'active' : '' href='/businessCard') Découvrir
-        a(class=currentPath === '/businessCard/savedBusinessCard' ? 'active' : '' href='/businessCard/savedBusinessCard') Ma bibliothèque
+        a(class=currentPath === '/businessCard/savedBusinessCard' || currentPath.endsWith('/organize') ? 'active' : '' href='/businessCard/savedBusinessCard') Ma bibliothèque
         a(class=currentPath === '/businessCard/mine' ? 'active' : '' href='/businessCard/mine') Mes cartes
-        a(class=currentPath.startsWith('/api/user') ? 'active' : '' href=`/api/user/${user.id}`) Mon profil
-        form(action='/api/user/logout' method='post')
-          input(type='hidden' name='_csrf' value=csrfToken)
-          button.nav-logout(type='submit') Déconnexion
+        .account-tools
+          a(class=currentPath.startsWith('/api/user') ? 'active' : '' href=`/api/user/${user.id}`) Mon profil
+          form(action='/api/user/logout' method='post')
+            input(type='hidden' name='_csrf' value=csrfToken)
+            button.nav-logout(type='submit') Déconnexion
       else
         a(href='/login' class=currentPath === '/login' ? 'active' : '') Connexion
         a(href='/register' class=currentPath === '/register' ? 'active' : '') Créer un compte

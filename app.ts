@@ -62,6 +62,7 @@ export function createApp({
       },
     }),
   );
+  app.use((req, res, next) => { res.set("Cache-Control", "no-store"); next(); });
   app.use(checkUser);
   app.use((req, res, next) => {
     if (!req.session.csrfToken)

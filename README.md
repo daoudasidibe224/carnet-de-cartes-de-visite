@@ -4,10 +4,13 @@ Créez vos cartes de visite, découvrez celles des autres membres et gardez les 
 
 ## Fonctionnalités
 
-- Inscription, connexion, déconnexion et modification du profil privé.
+- Inscription avec email et mot de passe, nom facultatif, visibilité du mot de passe et déconnexion qui révoque la session.
 - Création de plusieurs cartes, modification et suppression par leur propriétaire, sans doublon sur un double envoi.
 - Annuaire accessible aux membres connectés, recherche par nom, entreprise ou email et pagination de 12 cartes.
 - Bibliothèque personnelle, ajout sans doublon et retrait d’une carte.
+- Notes personnelles, jusqu’à 8 étiquettes par contact et favoris privés.
+- Recherche dans les notes et étiquettes, filtres par étiquette et favoris dans la bibliothèque.
+- Export JSON de toute la bibliothèque avec les coordonnées et vos annotations privées.
 - Export vCard des cartes visibles, avec échappement des séparateurs et retours à la ligne.
 - Formulaires avec erreurs ciblées, navigation mobile et confirmation de suppression au clavier.
 
@@ -58,11 +61,13 @@ Si le port 27017 est déjà occupé, utilisez votre instance locale compatible o
 | `npm test` | Exécuter les tests HTTP et MongoDB |
 | `npm run check` | Exécuter lint, types, compilation et tests |
 
-`npm run dev` surveille le serveur et les sources du client. Les tests lancent un vrai replica set MongoDB temporaire via `mongodb-memory-server`. Le premier lancement télécharge le binaire et nécessite un accès réseau. Ils couvrent auth et CSRF, renouvellement et révocation des sessions, accès au profil, hachage, propriété des cartes, bibliothèque idempotente, nettoyage transactionnel, publication concurrente sans doublon, conflit d’édition, recherche littérale, pagination, export et persistance dans une nouvelle instance du serveur. La CI lance les mêmes contrôles et les parcours navigateur sous Node.js 22.
+`npm run dev` surveille le serveur et les sources du client. Les tests lancent un vrai replica set MongoDB temporaire via `mongodb-memory-server`. Le premier lancement télécharge le binaire et nécessite un accès réseau. Ils couvrent auth et CSRF, renouvellement et révocation des sessions, accès au profil, hachage, propriété des cartes, bibliothèque idempotente, nettoyage transactionnel, publication concurrente sans doublon, conflit d’édition et de notes, isolation des annotations privées, filtres, export JSON personnel, recherche littérale, pagination, export et persistance dans une nouvelle instance du serveur. La CI lance les mêmes contrôles et les parcours navigateur sous Node.js 22.
 
 ## Publication et modifications concurrentes
 
 Chaque formulaire de création porte un identifiant propre. Le serveur enregistre cet identifiant et la carte dans la même transaction. Deux envois du même formulaire publient une seule carte ; réutiliser cet identifiant avec d’autres coordonnées est refusé. La suppression conserve la trace de création pour qu’un ancien envoi ne recrée pas la carte. Un nouveau formulaire permet de publier une nouvelle carte. Ces traces restent dans la collection `cardcreations`.
+
+Les annotations personnelles portent aussi une version. Deux onglets ne peuvent pas écraser leurs notes sans conflit explicite ; la note déjà enregistrée reste consultable et la saisie est conservée. L’enregistrement, le retrait d’un contact et la suppression d’une carte se coordonnent par transaction. Retirer une carte efface également ses notes privées et ses étiquettes.
 
 La modification porte la version de la carte chargée. Si un autre onglet l’a déjà modifiée, le serveur affiche un conflit au lieu d’écraser ses changements. Les coordonnées saisies restent visibles pour être vérifiées avant une nouvelle tentative. L’ajout en bibliothèque utilise un ensemble sans doublon, et sa transaction se coordonne avec la suppression de la carte. Annuler la confirmation de suppression n’envoie aucune demande.
 
@@ -74,7 +79,9 @@ Le carnet adopte un répertoire éditorial : masthead, index de recherche, carte
 
 Les cartes publiées sont visibles par tous les membres connectés. Le profil du compte reste privé. Modifier le profil ne modifie pas automatiquement les cartes déjà publiées. Les cartes enregistrées dans une bibliothèque restent liées à leur carte d’origine : une modification est visible à la prochaine consultation ; une suppression les retire des bibliothèques dans la même transaction.
 
-Comptes, cartes, bibliothèques et sessions persistent dans MongoDB et survivent au redémarrage du serveur. Une erreur de base affiche une page d’erreur et ne valide pas l’opération. Le serveur refuse de démarrer si la configuration manque ou si la base est inaccessible. L’application ne propose pas de réinitialisation de mot de passe, de validation d’email ou d’import de fichier vCard.
+Les notes, les étiquettes et les favoris ne sont accessibles qu’au compte qui les a enregistrés. Leur recherche reste limitée à sa bibliothèque. L’export `mon-carnet.json` contient toutes ses cartes conservées, avec ses propres annotations ; il ne contient aucun identifiant interne ni annotation d’un autre membre. Ce fichier peut servir à une sauvegarde ou à un traitement externe ; l’import JSON n’est pas proposé.
+
+Comptes, cartes, annotations privées, bibliothèques et sessions persistent dans MongoDB et survivent au redémarrage du serveur. Une erreur de base affiche une page d’erreur et ne valide pas l’opération. Le serveur refuse de démarrer si la configuration manque ou si la base est inaccessible. L’application ne propose pas de réinitialisation de mot de passe, de validation d’email ou d’import de fichier vCard.
 
 L’ancienne configuration de cluster et le secret JWT fixe ne sont plus utilisés. Le dépôt attend une base configurée explicitement par `MONGODB_URI` ; il ne migre ni ne contacte automatiquement l’ancien cluster.
 

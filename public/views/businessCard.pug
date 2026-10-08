@@ -8,16 +8,31 @@ block content
       p.eyebrow= mode === 'directory' ? 'L’annuaire des membres' : 'Votre carnet'
       h1= heading
       p.lead= description
-    a.button(href='/businessCard/addBusinessCard') Créer une carte
+    if mode === 'saved'
+      a.button.secondary(href='/businessCard/export') Exporter mon carnet .json
+    else
+      a.button(href='/businessCard/addBusinessCard') Créer une carte
   .directory-layout
     .directory-toolbar
       form.search-form(action=basePath method='get' role='search')
         label(for='search') Rechercher une carte
         .search-controls
-          input#search(type='search' name='q' value=q maxlength='100' placeholder='Nom, entreprise ou email')
+          input#search(type='search' name='q' value=q maxlength='100' placeholder=mode === 'saved' ? 'Contact, note ou étiquette' : 'Nom, entreprise ou email')
           button.button.secondary(type='submit') Rechercher
           if q
             a.text-link(href=basePath) Effacer
+        if mode === 'saved'
+          .private-filters
+            label(for='tag-filter') Étiquette
+            select#tag-filter(name='tag')
+              option(value='') Toutes les étiquettes
+              each label in availableTags
+                option(value=label selected=tag === label)= label
+            label.favorite-checkbox
+              input(type='checkbox' name='favorites' value='1' checked=favorites)
+              | Favoris uniquement
+        if mode === 'saved' && (tag || favorites)
+          a.text-link(href=basePath) Réinitialiser les filtres
       p.result-count #{total} #{total > 1 ? 'cartes' : 'carte'}
     if businessCards.length
       .cards-grid
@@ -33,6 +48,15 @@ block content
                   a(href=`tel:${card.tel}`)= card.tel
                 else
                   span.muted Téléphone non renseigné
+            if mode === 'saved'
+              - const annotation = annotationMap[card.id]
+              .private-contact
+                if annotation && annotation.favorite
+                  span.favorite-label ★ Favori
+                if annotation && annotation.tags.length
+                  p.contact-tags= annotation.tags.join(' · ')
+                if annotation && annotation.note
+                  p.private-note= annotation.note
             .card-actions
               a.download-link(href=`/businessCard/${card.id}/vcard` aria-label=`Exporter la carte de ${card.name}`) Exporter .vcf
               if mode === 'mine'
@@ -41,16 +65,18 @@ block content
                   input(type='hidden' name='_csrf' value=csrfToken)
                   button.card-action.danger-text(type='submit' aria-label=`Supprimer la carte de ${card.name}`) Supprimer
               else
+                if mode === 'saved'
+                  a(href=`/businessCard/${card.id}/organize` aria-label=`Organiser le contact ${card.name}`) Notes et étiquettes
                 form(action=`/businessCard/${card.id}/${mode === 'saved' ? 'remove' : 'save'}` method='post')
                   input(type='hidden' name='_csrf' value=csrfToken)
                   button.card-action(type='submit' aria-label=`${mode === 'saved' ? 'Retirer' : 'Garder'} la carte de ${card.name}`)= mode === 'saved' ? 'Retirer' : 'Garder la carte'
       if pages > 1
         nav.pagination(aria-label='Pages de cartes')
           if page > 1
-            a.button.secondary(href=`${basePath}?q=${encodeURIComponent(q)}&page=${page-1}`) Page précédente
+            a.button.secondary(href=`${basePath}?q=${encodeURIComponent(q)}&tag=${encodeURIComponent(tag)}&favorites=${favorites ? 1 : 0}&page=${page-1}`) Page précédente
           span Page #{page} sur #{pages}
           if page < pages
-            a.button.secondary(href=`${basePath}?q=${encodeURIComponent(q)}&page=${page+1}`) Page suivante
+            a.button.secondary(href=`${basePath}?q=${encodeURIComponent(q)}&tag=${encodeURIComponent(tag)}&favorites=${favorites ? 1 : 0}&page=${page+1}`) Page suivante
     else
       section.empty-state
         .empty-icon(aria-hidden='true') C

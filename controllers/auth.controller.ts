@@ -9,6 +9,7 @@ import {
 } from "../utils/errors.utils";
 export const signUp: Controller = async (req, res) => {
   const values = contactValues(req.body);
+  if (!values.name) values.name = "Membre";
   const password = formValues(req.body).password;
   const errors = validateContact(values);
   if (
@@ -17,7 +18,10 @@ export const signUp: Controller = async (req, res) => {
     Buffer.byteLength(password) > 72
   )
     errors.password = "Utilisez au moins 8 caractères et au maximum 72 octets.";
-  if (password !== formValues(req.body).confirmPassword)
+  if (
+    formValues(req.body).confirmPassword !== undefined &&
+    password !== formValues(req.body).confirmPassword
+  )
     errors.confirmPassword = "Les mots de passe ne correspondent pas.";
   if (typeof password !== "string" || Object.keys(errors).length)
     return res.status(422).render("register", { values, errors });

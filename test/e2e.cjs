@@ -30,27 +30,16 @@ fs.mkdirSync(results, { recursive: true });
     page.on("pageerror", (error) => errors.push(error.message));
   async function signup(page, name) {
     await page.goto(base + "/register");
-    await page.getByLabel("Nom complet", { exact: true }).fill(name);
-    await page
-      .getByLabel("Entreprise (facultatif)", { exact: true })
-      .fill("Atelier indépendant");
+    await page.getByLabel("Nom (facultatif)", { exact: true }).fill(name);
     await page
       .getByLabel("Adresse email", { exact: true })
       .fill(name.toLowerCase() + "@example.test");
-    await page
-      .getByLabel("Téléphone (facultatif)", { exact: true })
-      .fill("+33 6 12 34 56 78");
     await page.locator("#password").fill("Password1234");
-    await page.locator("#confirmPassword").fill("Mismatch1234");
     await page
-      .getByRole("button", { name: "Créer mon compte", exact: true })
+      .getByRole("button", { name: "Afficher le mot de passe" })
       .click();
-    await page
-      .getByText("Les mots de passe ne correspondent pas.", { exact: true })
-      .first()
-      .waitFor();
-    await page.locator("#password").fill("Password1234");
-    await page.locator("#confirmPassword").fill("Password1234");
+    assert.equal(await page.locator("#password").getAttribute("type"), "text");
+    await page.getByRole("button", { name: "Masquer le mot de passe" }).click();
     await page
       .getByRole("button", { name: "Créer mon compte", exact: true })
       .click();
@@ -92,6 +81,18 @@ fs.mkdirSync(results, { recursive: true });
     });
     await signup(one, "Camille");
     await signup(two, "Alex");
+    const duplicate = await browser.newPage({ viewport: { width: 320, height: 844 } });
+    duplicate.on("pageerror", error => errors.push(error.message));
+    await duplicate.goto(base + "/register");
+    await duplicate.locator("#email").fill("alex@example.test");
+    await duplicate.locator("#password").fill("Password1234");
+    await duplicate.getByRole("button", { name: "Créer mon compte", exact: true }).click();
+    await duplicate.getByText("Cet email est déjà utilisé.", { exact: true }).first().waitFor();
+    assert.equal(await duplicate.evaluate(() => document.activeElement?.getAttribute("role")), "alert");
+    assert.equal(await duplicate.locator("#email").getAttribute("aria-invalid"), "true");
+    assert.equal(await duplicate.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+    await duplicate.close();
+
     await one
       .getByRole("link", { name: "Créer une carte", exact: true })
       .first()
@@ -100,6 +101,9 @@ fs.mkdirSync(results, { recursive: true });
     await one
       .getByLabel("Entreprise (facultatif)", { exact: true })
       .fill("Studio des possibles");
+    await one
+      .getByLabel("Téléphone (facultatif)", { exact: true })
+      .fill("+33 6 12 34 56 78");
     const creationKey = await one
       .locator('input[name="creationKey"]')
       .inputValue();
@@ -192,6 +196,60 @@ fs.mkdirSync(results, { recursive: true });
     await two
       .getByRole("heading", { name: "Camille Martin", exact: true })
       .waitFor();
+    await two
+      .getByRole("link", { name: "Organiser le contact Camille Martin" })
+      .click();
+    await two
+      .getByLabel("Note personnelle", { exact: true })
+      .fill("Rencontrée à la conférence TypeScript. À rappeler lundi.");
+    await two.getByLabel("Étiquettes", { exact: true }).fill("dev, réseau");
+    await two.getByLabel("Contact favori", { exact: true }).check();
+    const oldNotes = await mobile.newPage();
+    oldNotes.on("pageerror", (error) => errors.push(error.message));
+    await oldNotes.goto(two.url());
+    await two.getByRole("button", { name: "Enregistrer mes notes" }).click();
+    await two.waitForURL("**/savedBusinessCard");
+    await oldNotes
+      .getByLabel("Note personnelle", { exact: true })
+      .fill("Ancienne version");
+    await oldNotes
+      .getByRole("button", { name: "Enregistrer mes notes" })
+      .click();
+    await oldNotes
+      .getByText(
+        "Vos notes ont changé dans un autre onglet. Relisez-les avant d’enregistrer à nouveau.",
+        { exact: true },
+      )
+      .waitFor();
+    await oldNotes.close();
+    await two.reload();
+    await two
+      .getByText("Rencontrée à la conférence TypeScript. À rappeler lundi.", {
+        exact: true,
+      })
+      .waitFor();
+    await two.getByRole("link", { name: "Organiser le contact Camille Martin" }).click();
+    await two.locator("#note").fill("Modification annulée");
+    await two.getByRole("link", { name: "Annuler", exact: true }).click();
+    await two.getByText("Rencontrée à la conférence TypeScript. À rappeler lundi.", { exact: true }).waitFor();
+    await two.locator("#search").fill("TypeScript");
+    await two.locator("#tag-filter").selectOption("dev");
+    await two.getByLabel("Favoris uniquement", { exact: true }).check();
+    await two.getByRole("button", { name: "Rechercher", exact: true }).click();
+    await two
+      .getByRole("heading", { name: "Camille Martin", exact: true })
+      .waitFor();
+    const jsonDownload = two.waitForEvent("download");
+    await two.getByRole("link", { name: "Exporter mon carnet .json" }).click();
+    const jsonFile = await jsonDownload;
+    await jsonFile.saveAs(path.join(results, "mon-carnet.json"));
+    const exported = JSON.parse(
+      fs.readFileSync(path.join(results, "mon-carnet.json"), "utf8"),
+    );
+    assert.equal(exported.contacts[0].favorite, true);
+    assert.deepEqual(exported.contacts[0].tags, ["dev", "réseau"]);
+    assert.match(exported.contacts[0].note, /TypeScript/);
+    await two.goto(base + "/businessCard/savedBusinessCard");
     await two.screenshot({
       path: path.join(results, "library-mobile.png"),
       fullPage: true,
@@ -307,6 +365,7 @@ fs.mkdirSync(results, { recursive: true });
         "/businessCard/savedBusinessCard",
         "/businessCard/mine",
         "/businessCard/addBusinessCard",
+        `/businessCard/${cardId}/organize`,
       ]) {
         await two.goto(base + route);
         assert.equal(
@@ -386,6 +445,10 @@ fs.mkdirSync(results, { recursive: true });
             "publish double click and replay",
             "stale edit conflict",
             "library persistence",
+            "private notes tags favorites",
+            "stale annotation conflict",
+            "private search filters",
+            "personal JSON export",
             "vcard download",
             "ownership",
             "edit propagates",

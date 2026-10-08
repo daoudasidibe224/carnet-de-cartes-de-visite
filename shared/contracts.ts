@@ -22,3 +22,10 @@ export const formSchema = z.object({
   confirmPassword: z.string().optional(),
   _csrf: z.string().optional(),
 });
+
+export const annotationSchema = z.object({
+  note: z.string().trim().max(2000),
+  tags: z.array(z.string().trim().min(1).max(24)).max(8),
+  favorite: z.boolean(),
+});
+export type Annotation = z.infer<typeof annotationSchema>;

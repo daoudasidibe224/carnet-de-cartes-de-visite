@@ -28,6 +28,7 @@ const schema = new Schema(
     tel: { type: String, maxlength: 30, trim: true },
     password: { type: String, required: true, minlength: 8, select: false },
     library: { type: [String], default: [] },
+    libraryRevision: { type: Number, default: 0 },
   },
   { timestamps: true },
 );
