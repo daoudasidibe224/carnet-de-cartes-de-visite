@@ -190,6 +190,12 @@ fs.mkdirSync(results, { recursive: true });
         request.method() === "POST" &&
         request.url().endsWith("/businessCard/addBusinessCard"),
     );
+    await one.waitForLoadState("load");
+    assert.equal(
+      await one.locator("main form").evaluate((form) => form.checkValidity()),
+      true,
+      "Le formulaire doit être valide avant de vérifier sa protection contre les doubles clics.",
+    );
     const busy = await one
       .getByRole("button", { name: "Publier ma carte", exact: true })
       .evaluate((button) => {
