@@ -65,6 +65,26 @@ fs.mkdirSync(results, { recursive: true });
     await page.waitForURL("**/businessCard");
   }
   try {
+    for (const width of [320, 390, 800, 1440]) {
+      await two.setViewportSize({ width, height: 900 });
+      for (const route of ["/login", "/register", "/missing"]) {
+        await two.goto(base + route);
+        assert.equal(
+          await two.evaluate(
+            () => document.documentElement.scrollWidth > innerWidth,
+          ),
+          false,
+          `${width} ${route}`,
+        );
+      }
+    }
+    await two.setViewportSize({ width: 390, height: 844 });
+    await two.emulateMedia({ reducedMotion: "reduce" });
+    await two.goto(base + "/login");
+    await two.screenshot({
+      path: path.join(results, "login-mobile.png"),
+      fullPage: true,
+    });
     await one.goto(base + "/login");
     await one.screenshot({
       path: path.join(results, "login-desktop.png"),
@@ -80,9 +100,50 @@ fs.mkdirSync(results, { recursive: true });
     await one
       .getByLabel("Entreprise (facultatif)", { exact: true })
       .fill("Studio des possibles");
-    await one
+    const creationKey = await one
+      .locator('input[name="creationKey"]')
+      .inputValue();
+    const creationToken = await one
+      .locator('input[name="_csrf"]')
+      .first()
+      .inputValue();
+    let publications = 0;
+    one.on("request", (request) => {
+      if (
+        request.method() === "POST" &&
+        request.url().endsWith("/businessCard/addBusinessCard")
+      )
+        publications++;
+    });
+    await one.route("**/businessCard/addBusinessCard", async (route) => {
+      if (route.request().method() === "POST")
+        await new Promise((resolve) => setTimeout(resolve, 700));
+      await route.continue();
+    });
+    const posting = one.waitForRequest(
+      (request) =>
+        request.method() === "POST" &&
+        request.url().endsWith("/businessCard/addBusinessCard"),
+    );
+    const busy = await one
       .getByRole("button", { name: "Publier ma carte", exact: true })
-      .click();
+      .evaluate((button) => {
+        button.click();
+        button.click();
+        return {
+          disabled: button.disabled,
+          label: button.textContent,
+          busy: button.getAttribute("aria-busy"),
+        };
+      });
+    assert.deepEqual(busy, {
+      disabled: true,
+      label: "En cours…",
+      busy: "true",
+    });
+    await posting;
+    await one.waitForURL("**/businessCard/mine");
+    await one.unroute("**/businessCard/addBusinessCard");
     await one.waitForURL("**/businessCard/mine");
     await one
       .getByRole("heading", { name: "Camille Martin", exact: true })
@@ -95,6 +156,27 @@ fs.mkdirSync(results, { recursive: true });
         })
         .getAttribute("href")
     ).split("/")[2];
+    assert.equal(publications, 1);
+    const replay = await Promise.all(
+      Array.from({ length: 3 }, () =>
+        one.request.post(base + "/businessCard/addBusinessCard", {
+          form: {
+            _csrf: creationToken,
+            creationKey,
+            name: "Camille Martin",
+            companyName: "Studio des possibles",
+            email: "camille@example.test",
+            tel: "+33 6 12 34 56 78",
+          },
+        }),
+      ),
+    );
+    assert.deepEqual(
+      replay.map((response) => response.status()),
+      [200, 200, 200],
+    );
+    await one.reload();
+    assert.equal(await one.locator(".contact-card").count(), 1);
     await two.reload();
     await two
       .getByRole("heading", { name: "Camille Martin", exact: true })
@@ -149,11 +231,27 @@ fs.mkdirSync(results, { recursive: true });
         exact: true,
       })
       .click();
+    const stale = await desktop.newPage();
+    stale.on("pageerror", (error) => errors.push(error.message));
+    await stale.goto(one.url());
     await one.getByLabel("Nom complet", { exact: true }).fill("Camille Dupont");
     await one
       .getByRole("button", { name: "Enregistrer la carte", exact: true })
       .click();
     await one.waitForURL("**/mine");
+    await stale
+      .getByLabel("Nom complet", { exact: true })
+      .fill("Modification trop ancienne");
+    await stale
+      .getByRole("button", { name: "Enregistrer la carte", exact: true })
+      .click();
+    await stale
+      .getByText(
+        "La carte a changé dans un autre onglet. Vérifiez vos coordonnées avant d’enregistrer à nouveau.",
+        { exact: true },
+      )
+      .waitFor();
+    await stale.close();
     await two.reload();
     await two
       .getByRole("heading", { name: "Camille Dupont", exact: true })
@@ -285,7 +383,8 @@ fs.mkdirSync(results, { recursive: true });
           flows: [
             "register errors",
             "login",
-            "publish",
+            "publish double click and replay",
+            "stale edit conflict",
             "library persistence",
             "vcard download",
             "ownership",

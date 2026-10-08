@@ -1,7 +1,9 @@
 header.site-header
+  .masthead-meta
+    span Répertoire personnel
+    span Coordonnées à partager
   .header-inner
     a.brand(href=user ? '/businessCard' : '/login')
-      span.brand-mark(aria-hidden='true') C
       span Carnet de cartes de visite
     button#menu-toggle.menu-toggle(type='button' aria-controls='site-nav' aria-expanded='false' aria-label='Ouvrir le menu') Menu
     nav#site-nav(aria-label='Navigation principale')

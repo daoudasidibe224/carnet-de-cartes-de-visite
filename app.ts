@@ -43,7 +43,7 @@ export function createApp({
     __dirname,
     existsSync(path.join(__dirname, "public")) ? "public" : "../public",
   );
-  for (const folder of ["js", "css", "images"])
+  for (const folder of ["js", "css", "images", "fonts"])
     app.use(`/${folder}`, express.static(path.join(publicDirectory, folder)));
   app.set("views", path.join(publicDirectory, "views"));
   app.set("view engine", "pug");

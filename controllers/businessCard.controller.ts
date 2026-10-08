@@ -1,4 +1,11 @@
-import { deleteOwnedCard, saveContactCard } from "../services/cards.service";
+import { randomUUID } from "node:crypto";
+import { z } from "zod";
+import {
+  createContactCard,
+  CardConflict,
+  deleteOwnedCard,
+  saveContactCard,
+} from "../services/cards.service";
 import { authenticatedUser, type Controller } from "../types";
 import mongoose from "mongoose";
 import Card from "../models/businessCard.model";
@@ -78,6 +85,7 @@ export const getMyCards: Controller = (req, res) => list(req, res, "mine");
 export const newCard: Controller = (req, res) =>
   res.render("addBusinessCard", {
     card: null,
+    creationKey: randomUUID(),
     values: {
       name: authenticatedUser(req).name,
       companyName: authenticatedUser(req).companyName,
@@ -87,21 +95,35 @@ export const newCard: Controller = (req, res) =>
   });
 export const addBusinessCard: Controller = async (req, res) => {
   const values = contactValues(req.body);
+  const operation = z
+    .object({ creationKey: z.string().uuid() })
+    .safeParse(req.body);
+  const creationKey = operation.success
+    ? operation.data.creationKey
+    : randomUUID();
   const errors = validateContact(values);
+  if (!operation.success)
+    errors.form = "Le formulaire a expiré. Rechargez-le avant de publier.";
   if (Object.keys(errors).length)
     return res
       .status(422)
-      .render("addBusinessCard", { card: null, values, errors });
+      .render("addBusinessCard", { card: null, creationKey, values, errors });
   try {
-    await Card.create({ ...values, userId: authenticatedUser(req).id });
+    await createContactCard(authenticatedUser(req).id, creationKey, values);
     req.session.notice = "Votre carte est publiée dans l’annuaire.";
     res.redirect("/businessCard/mine");
   } catch (error) {
-    res.status(422).render("addBusinessCard", {
-      card: null,
-      values,
-      errors: databaseErrors(error),
-    });
+    res
+      .status(error instanceof CardConflict ? 409 : 422)
+      .render("addBusinessCard", {
+        card: null,
+        creationKey,
+        values,
+        errors:
+          error instanceof CardConflict
+            ? { form: error.message }
+            : databaseErrors(error),
+      });
   }
 };
 export const editCard: Controller = async (req, res) => {
@@ -124,11 +146,42 @@ export const updateCard: Controller = async (req, res) => {
   const errors = validateContact(values);
   if (Object.keys(errors).length)
     return res.status(422).render("addBusinessCard", { card, values, errors });
-  await Card.updateOne(
-    { _id: card.id, userId: authenticatedUser(req).id },
-    { $set: values },
+  const revision = z
+    .object({ revision: z.coerce.number().int().nonnegative() })
+    .safeParse(req.body);
+  if (!revision.success)
+    return res
+      .status(422)
+      .render("addBusinessCard", {
+        card,
+        values,
+        errors: { form: "Version de carte invalide. Rechargez la page." },
+      });
+  const result = await Card.updateOne(
+    {
+      _id: card.id,
+      userId: authenticatedUser(req).id,
+      __v: revision.data.revision,
+    },
+    { $set: values, $inc: { __v: 1 } },
     { runValidators: true },
   );
+  if (!result.matchedCount) {
+    const latest = await Card.findOne({
+      _id: card.id,
+      userId: authenticatedUser(req).id,
+    });
+    if (!latest) return missing(res);
+    return res
+      .status(409)
+      .render("addBusinessCard", {
+        card: latest,
+        values,
+        errors: {
+          form: "La carte a changé dans un autre onglet. Vérifiez vos coordonnées avant d’enregistrer à nouveau.",
+        },
+      });
+  }
   req.session.notice = "Votre carte a été mise à jour.";
   res.redirect("/businessCard/mine");
 };

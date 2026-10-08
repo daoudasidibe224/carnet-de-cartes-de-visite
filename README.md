@@ -5,7 +5,7 @@ Créez vos cartes de visite, découvrez celles des autres membres et gardez les 
 ## Fonctionnalités
 
 - Inscription, connexion, déconnexion et modification du profil privé.
-- Création de plusieurs cartes, modification et suppression par leur propriétaire.
+- Création de plusieurs cartes, modification et suppression par leur propriétaire, sans doublon sur un double envoi.
 - Annuaire accessible aux membres connectés, recherche par nom, entreprise ou email et pagination de 12 cartes.
 - Bibliothèque personnelle, ajout sans doublon et retrait d’une carte.
 - Export vCard des cartes visibles, avec échappement des séparateurs et retours à la ligne.
@@ -19,7 +19,7 @@ Les mots de passe sont hachés avec bcrypt. Les sessions restent dans MongoDB av
 
 ## Installation locale
 
-Vous avez besoin de Node.js et de Docker avec Compose, ou d’un MongoDB compatible déjà configuré en replica set. Les [transactions MongoDB](https://www.mongodb.com/docs/manual/core/transactions/) de suppression et d’ajout à la bibliothèque nécessitent un replica set ; une seule instance locale suffit.
+Vous avez besoin de Node.js et de Docker avec Compose, ou d’un MongoDB compatible déjà configuré en replica set. Les [transactions MongoDB](https://www.mongodb.com/docs/manual/core/transactions/) de publication, de suppression et d’ajout à la bibliothèque nécessitent un replica set ; une seule instance locale suffit.
 
 ```sh
 npm ci
@@ -58,7 +58,17 @@ Si le port 27017 est déjà occupé, utilisez votre instance locale compatible o
 | `npm test` | Exécuter les tests HTTP et MongoDB |
 | `npm run check` | Exécuter lint, types, compilation et tests |
 
-`npm run dev` surveille le serveur et les sources du client. Les tests lancent un vrai replica set MongoDB temporaire via `mongodb-memory-server`. Le premier lancement télécharge le binaire et nécessite un accès réseau. Ils couvrent auth et CSRF, renouvellement et révocation des sessions, accès au profil, hachage, propriété des cartes, bibliothèque idempotente, nettoyage transactionnel, recherche littérale, pagination, export et persistance dans une nouvelle instance du serveur. La CI lance les mêmes contrôles et les parcours navigateur sous Node.js 22.
+`npm run dev` surveille le serveur et les sources du client. Les tests lancent un vrai replica set MongoDB temporaire via `mongodb-memory-server`. Le premier lancement télécharge le binaire et nécessite un accès réseau. Ils couvrent auth et CSRF, renouvellement et révocation des sessions, accès au profil, hachage, propriété des cartes, bibliothèque idempotente, nettoyage transactionnel, publication concurrente sans doublon, conflit d’édition, recherche littérale, pagination, export et persistance dans une nouvelle instance du serveur. La CI lance les mêmes contrôles et les parcours navigateur sous Node.js 22.
+
+## Publication et modifications concurrentes
+
+Chaque formulaire de création porte un identifiant propre. Le serveur enregistre cet identifiant et la carte dans la même transaction. Deux envois du même formulaire publient une seule carte ; réutiliser cet identifiant avec d’autres coordonnées est refusé. La suppression conserve la trace de création pour qu’un ancien envoi ne recrée pas la carte. Un nouveau formulaire permet de publier une nouvelle carte. Ces traces restent dans la collection `cardcreations`.
+
+La modification porte la version de la carte chargée. Si un autre onglet l’a déjà modifiée, le serveur affiche un conflit au lieu d’écraser ses changements. Les coordonnées saisies restent visibles pour être vérifiées avant une nouvelle tentative. L’ajout en bibliothèque utilise un ensemble sans doublon, et sa transaction se coordonne avec la suppression de la carte. Annuler la confirmation de suppression n’envoie aucune demande.
+
+## Interface et fontes
+
+Le carnet adopte un répertoire éditorial : masthead, index de recherche, cartes rectangulaires et liens de coordonnées soulignés. Cormorant Garamond et Figtree sont servis localement, avec leurs licences SIL Open Font License dans `public/fonts/`. Les fichiers proviennent du [répertoire officiel Google Fonts](https://github.com/google/fonts).
 
 ## Données et limites
 

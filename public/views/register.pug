@@ -2,16 +2,10 @@ extends layout
 include includes/fields
 block content
   .auth-layout
-    section.auth-intro
-      p.eyebrow Faites connaissance
-      h1 Votre carnet commence ici.
-      p.lead Renseignez votre profil, puis choisissez les coordonnées à publier sur vos cartes de visite.
-      .quiet-panel
-        h2 Vous choisissez ce que vous partagez.
-        p Le profil reste privé. Les cartes que vous publiez sont accessibles aux membres connectés et peuvent être enregistrées ou exportées.
-      p.small Vous pourrez créer plusieurs cartes et modifier votre profil à tout moment.
     section.auth-panel
-      h2 Créer mon compte
+      p.eyebrow Nouveau carnet
+      h1 Créer mon compte
+      p.muted Votre profil reste privé. Vous choisirez les coordonnées à publier sur vos cartes.
       form(action='/api/user/register' method='post')
         input(type='hidden' name='_csrf' value=csrfToken)
         +contactFields()

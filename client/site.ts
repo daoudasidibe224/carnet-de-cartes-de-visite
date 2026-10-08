@@ -19,7 +19,8 @@ if (dialog instanceof HTMLDialogElement) {
     "[data-confirm-delete]",
   ))
     form.addEventListener("submit", (event) => {
-      if (approved) return;
+      if (approved && pending === form) return;
+      approved = false;
       event.preventDefault();
       pending = form;
       dialog.showModal();
@@ -41,4 +42,42 @@ document.addEventListener("keydown", (event) => {
     closeMenu();
     if (!(dialog instanceof HTMLDialogElement) || !dialog.open) toggle?.focus();
   }
+});
+
+for (const form of document.querySelectorAll<HTMLFormElement>(
+  "form[method='post']",
+)) {
+  let submitted = false;
+  form.addEventListener("submit", (event) => {
+    if (event.defaultPrevented) return;
+    if (submitted) {
+      event.preventDefault();
+      return;
+    }
+    submitted = true;
+    for (const button of form.querySelectorAll<HTMLButtonElement>(
+      "button[type='submit']",
+    )) {
+      button.dataset.readyLabel = button.textContent ?? "";
+      button.textContent = "En cours…";
+      button.disabled = true;
+      button.setAttribute("aria-busy", "true");
+    }
+  });
+  window.addEventListener("pageshow", () => {
+    submitted = false;
+    for (const button of form.querySelectorAll<HTMLButtonElement>(
+      "button[type='submit']",
+    )) {
+      button.disabled = false;
+      if (button.dataset.readyLabel !== undefined)
+        button.textContent = button.dataset.readyLabel;
+      button.removeAttribute("aria-busy");
+    }
+  });
+}
+
+window.addEventListener("pageshow", () => {
+  approved = false;
+  pending = undefined;
 });

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import mongoose from "mongoose";
@@ -6,6 +7,7 @@ import request from "supertest";
 import MongoStore from "connect-mongo";
 import { createApp } from "../app";
 import User from "../models/user.model";
+import CardCreation from "../models/cardCreation.model";
 import Card from "../models/businessCard.model";
 let mongo: MongoMemoryReplSet,
   app: ReturnType<typeof createApp>,
@@ -63,6 +65,13 @@ async function post(
   body: Record<string, unknown> = {},
 ) {
   const page = await agent.get("/businessCard");
+  if (url === "/businessCard/addBusinessCard" && !body.creationKey)
+    body.creationKey = randomUUID();
+  if (/\/edit$/.test(url) && body.revision === undefined) {
+    const form = await agent.get(url);
+    body.revision =
+      form.text.match(/name="revision" value="([^"]+)"/)?.[1] ?? "0";
+  }
   return agent
     .post(url)
     .type("form")
@@ -71,7 +80,7 @@ async function post(
 before(async () => {
   mongo = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
   await mongoose.connect(mongo.getUri(), { serverSelectionTimeoutMS: 1000 });
-  await Promise.all([User.init(), Card.init()]);
+  await Promise.all([User.init(), Card.init(), CardCreation.init()]);
   store = MongoStore.create({ client: mongoose.connection.getClient() });
   app = createApp({ secret: "x".repeat(48), store });
 });
@@ -327,6 +336,50 @@ test("un ajout concurrent à une suppression ne laisse aucune référence orphel
   assert.equal(deleted.status, 302);
   assert.equal(await Card.findById(card.id), null);
   assert.deepEqual((await User.findById(b.user.id))?.library, []);
+});
+test("publication idempotente et édition concurrente sans écrasement silencieux", async () => {
+  const owner = await account("DoubleAction");
+  await owner.agent.get("/businessCard/addBusinessCard");
+  const key = randomUUID(),
+    payload = { ...values("Unique Card"), creationKey: key };
+  const responses = await Promise.all(
+    Array.from({ length: 5 }, () =>
+      post(owner.agent, "/businessCard/addBusinessCard", payload),
+    ),
+  );
+  assert.deepEqual(
+    responses.map((response) => response.status),
+    Array(5).fill(302),
+  );
+  const cards = await Card.find({ userId: owner.user.id });
+  assert.equal(cards.length, 1);
+  const card = cards[0];
+  assert.ok(card);
+  const changed = await post(owner.agent, "/businessCard/addBusinessCard", {
+    ...payload,
+    name: "Different Card",
+  });
+  assert.equal(changed.status, 409);
+  const url = `/businessCard/${card.id}/edit`;
+  const edits = await Promise.all([
+    post(owner.agent, url, { ...values("Edit A"), revision: 0 }),
+    post(owner.agent, url, { ...values("Edit B"), revision: 0 }),
+  ]);
+  assert.deepEqual(edits.map((response) => response.status).sort(), [302, 409]);
+  assert.equal((await Card.findById(card.id))?.__v, 1);
+  assert.match(
+    edits.find((response) => response.status === 409)?.text ?? "",
+    /autre onglet/,
+  );
+  assert.equal(
+    (await post(owner.agent, `/businessCard/${card.id}/delete`)).status,
+    302,
+  );
+  assert.equal(
+    (await post(owner.agent, "/businessCard/addBusinessCard", payload)).status,
+    409,
+  );
+  assert.equal(await Card.countDocuments({ userId: owner.user.id }), 0);
 });
 test("une base indisponible renvoie une erreur sans annoncer de sauvegarde", async () => {
   const a = await account("Unavailable");

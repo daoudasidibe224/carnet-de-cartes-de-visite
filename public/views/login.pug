@@ -2,20 +2,9 @@ extends layout
 include includes/fields
 block content
   .auth-layout
-    section.auth-intro
-      p.eyebrow Un contact, une carte
-      h1 Les bonnes rencontres méritent de rester.
-      p.lead Créez vos cartes de visite et retrouvez les coordonnées de vos contacts, au même endroit.
-      .sample-card(aria-hidden='true')
-        .sample-stamp C
-        strong Votre prochaine rencontre
-        span Une carte à garder, un contact à retrouver.
-        .sample-rule
-        span Nom · Entreprise · Coordonnées
-      p.small Une bibliothèque personnelle, des cartes partageables et un export vers vos contacts.
     section.auth-panel
       p.eyebrow Votre carnet
-      h2 Se connecter
+      h1 Se connecter
       p.muted Retrouvez vos cartes et votre bibliothèque.
       form(action='/api/user/login' method='post')
         input(type='hidden' name='_csrf' value=csrfToken)
