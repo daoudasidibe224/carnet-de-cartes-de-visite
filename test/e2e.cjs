@@ -306,6 +306,7 @@ fs.mkdirSync(results, { recursive: true });
       })
       .waitFor();
     await two.locator("#search").fill("TypeScript");
+    await two.locator(".filter-tools summary").click();
     await two.locator("#tag-filter").selectOption("dev");
     await two.getByLabel("Favoris uniquement", { exact: true }).check();
     await two.getByRole("button", { name: "Rechercher", exact: true }).click();
@@ -313,6 +314,7 @@ fs.mkdirSync(results, { recursive: true });
       .getByRole("heading", { name: "Camille Martin", exact: true })
       .waitFor();
     const jsonDownload = two.waitForEvent("download");
+    await two.getByText("Sauvegardes", { exact: true }).click();
     await two.getByRole("link", { name: "Exporter mon carnet .json" }).click();
     const jsonFile = await jsonDownload;
     await jsonFile.saveAs(path.join(results, "mon-carnet.json"));
@@ -322,11 +324,80 @@ fs.mkdirSync(results, { recursive: true });
     assert.equal(exported.contacts[0].favorite, true);
     assert.deepEqual(exported.contacts[0].tags, ["dev", "réseau"]);
     assert.match(exported.contacts[0].note, /TypeScript/);
+    // La restauration passe par un vrai fichier, un aperçu sans mutation puis une transaction.
+    await two.goto(base + "/businessCard/savedBusinessCard");
+    await two
+      .getByRole("button", {
+        name: "Retirer la carte de Camille Martin",
+        exact: true,
+      })
+      .click();
+    await two.waitForURL("**/savedBusinessCard");
+    await two.getByText("Sauvegardes", { exact: true }).click();
+    await two
+      .getByRole("link", { name: "Restaurer une sauvegarde", exact: true })
+      .click();
+    await two
+      .locator("#backup-file")
+      .setInputFiles(path.join(results, "mon-carnet.json"));
+    await two
+      .getByText("mon-carnet.json est prêt à être vérifié.", { exact: true })
+      .waitFor();
+    await two
+      .getByRole("button", { name: "Vérifier la sauvegarde", exact: true })
+      .click();
+    await two
+      .getByRole("heading", { name: "Vérifier les contacts", exact: true })
+      .waitFor();
+    const cancellation = await mobile.newPage();
+    await cancellation.goto(base + "/businessCard/savedBusinessCard");
+    assert.equal(await cancellation.locator(".contact-card").count(), 0);
+    await cancellation.close();
+    await two
+      .getByRole("button", { name: "Restaurer ces contacts", exact: true })
+      .click();
+    await two.waitForURL("**/savedBusinessCard");
+    await two.reload();
+    await two
+      .getByText("Rencontrée à la conférence TypeScript. À rappeler lundi.", {
+        exact: true,
+      })
+      .waitFor();
+    assert.equal(await two.locator(".contact-card").count(), 1);
+    // Une vraie interruption réseau est distincte d’une fin normale de session.
+    await mobile.setOffline(true);
+    await two.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await two
+      .getByText(
+        "La connexion est interrompue. Votre page et vos données saisies sont conservées.",
+        { exact: true },
+      )
+      .waitFor();
+    assert.equal(await two.locator(".contact-card").count(), 1);
+    await mobile.setOffline(false);
+    await two.getByRole("button", { name: "Réessayer", exact: true }).click();
+    await two.waitForFunction(
+      () => document.getElementById("network-status").hidden,
+    );
     await two.goto(base + "/businessCard/savedBusinessCard");
     await two.screenshot({
       path: path.join(results, "library-mobile.png"),
       fullPage: true,
     });
+    await mobile.grantPermissions(["clipboard-read", "clipboard-write"], {
+      origin: base,
+    });
+    await two
+      .getByRole("button", {
+        name: "Copier les coordonnées de Camille Martin",
+        exact: true,
+      })
+      .click();
+    await two.getByText("Coordonnées copiées.", { exact: true }).waitFor();
+    assert.match(
+      await two.evaluate(() => navigator.clipboard.readText()),
+      /Camille Martin\ncamille@example.test\n\+33 6 12 34 56 78/,
+    );
     const downloading = two.waitForEvent("download");
     await two
       .getByRole("link", {
@@ -423,6 +494,23 @@ fs.mkdirSync(results, { recursive: true });
         .getAttribute("aria-expanded"),
       "true",
     );
+    const menuPaint = await two.locator("#site-nav").evaluate((nav) => {
+      const rectangle = nav.getBoundingClientRect();
+      const top = document.elementFromPoint(
+        rectangle.left + 30,
+        rectangle.top + 24,
+      );
+      return top === nav || nav.contains(top);
+    });
+    assert.equal(menuPaint, true, "le menu reste devant le contenu métier");
+    await two.getByRole("button", { name: "Déconnexion", exact: true }).focus();
+    await two.keyboard.press("Tab");
+    assert.equal(
+      await two
+        .getByRole("button", { name: "Ouvrir le menu", exact: true })
+        .evaluate((button) => document.activeElement === button),
+      true,
+    );
     await two.getByRole("link", { name: "Mon profil", exact: true }).click();
     await two.getByLabel("Nom complet", { exact: true }).fill("Alex Rivière");
     await two
@@ -438,6 +526,7 @@ fs.mkdirSync(results, { recursive: true });
         "/businessCard/savedBusinessCard",
         "/businessCard/mine",
         "/businessCard/addBusinessCard",
+        "/businessCard/import",
         `/businessCard/${cardId}/organize`,
       ]) {
         await two.goto(base + route);
@@ -641,7 +730,10 @@ fs.mkdirSync(results, { recursive: true });
             "stale annotation conflict",
             "private search filters",
             "personal JSON export",
+            "private backup file preview and restoration",
+            "network interruption retry without losing private content",
             "vcard download",
+            "native clipboard copy of contact coordinates",
             "ownership",
             "edit propagates",
             "search literal",

@@ -1,0 +1,45 @@
+extends layout
+block content
+  .page-heading
+    p.eyebrow Ma bibliothèque
+    h1 Restaurer une sauvegarde
+    p.lead Retrouvez les contacts et notes privées d’un carnet exporté, après avoir vérifié l’aperçu.
+  section.form-panel
+    p.backup-help Les cartes doivent encore exister dans l’annuaire. La restauration ne publie aucune carte et ne remplace jamais vos notes actuelles. 200 contacts et 512 Ko maximum.
+    if plan
+      .backup-preview
+        h2 Vérifier les contacts
+        p.backup-help #{plan.contacts.filter(item => !item.saved).length} à ajouter · #{plan.contacts.filter(item => item.saved).length} déjà présents. Cet aperçu reste disponible cinq minutes. Un nouvel aperçu dans un autre onglet remplace celui-ci.
+        if plan.contacts.length
+          ul
+            each item in plan.contacts
+              li #{item.values.name} · #{item.values.email}#{item.saved ? ' — déjà présent' : ''}
+          form(action='/businessCard/import/apply' method='post')
+            input(type='hidden' name='_csrf' value=csrfToken)
+            input(type='hidden' name='key' value=plan.key)
+            .form-actions
+              button.button(type='submit') Restaurer ces contacts
+              a.text-link(href='/businessCard/savedBusinessCard') Annuler
+        else
+          p La sauvegarde est vide. Aucun contact à restaurer.
+      details.optional-profile
+        summary Vérifier un autre fichier
+        form(action='/businessCard/import/preview' method='post')
+          input(type='hidden' name='_csrf' value=csrfToken)
+          .field
+            label(for='backup') Contenu JSON
+            textarea#backup(name='backup' rows='6' required)= raw
+          button.button.secondary(type='submit') Vérifier la sauvegarde
+    else
+      form(action='/businessCard/import/preview' method='post')
+        input(type='hidden' name='_csrf' value=csrfToken)
+        .field
+          label(for='backup-file') Fichier du carnet
+          input#backup-file(type='file' accept='.json,application/json' aria-describedby='backup-file-status')
+          p#backup-file-status.muted
+        .field
+          label(for='backup') Ou coller le contenu JSON
+          textarea#backup(name='backup' rows='7' required spellcheck='false')= raw
+        .form-actions
+          button.button(type='submit') Vérifier la sauvegarde
+          a.text-link(href='/businessCard/savedBusinessCard') Annuler

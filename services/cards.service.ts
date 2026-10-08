@@ -35,8 +35,8 @@ export async function saveContactCard(id: string, userId: string) {
       { session },
     );
     await User.updateOne(
-      { _id: userId },
-      { $addToSet: { library: card.id } },
+      { _id: userId, library: { $ne: card.id } },
+      { $addToSet: { library: card.id }, $inc: { libraryRevision: 1 } },
       { session },
     );
     return true;

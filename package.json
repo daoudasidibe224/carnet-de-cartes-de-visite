@@ -1,8 +1,8 @@
 {
-  "name": "carnet-cartes-de-visite",
+  "name": "carnet-de-cartes-de-visite",
   "version": "2.0.0",
   "private": true,
-  "description": "Carnet de cartes de visite et biblioth\u00e8que personnelle",
+  "description": "Carnet de cartes de visite et bibliothèque personnelle",
   "main": "dist/server.js",
   "engines": {
     "node": ">=22.16.0"
@@ -10,7 +10,7 @@
   "scripts": {
     "start": "node dist/server.js",
     "dev": "node scripts/dev.js",
-    "lint": "eslint app.ts server.ts types.ts controllers middleware models routes utils services client shared",
+    "lint": "eslint app.ts health.ts server.ts types.ts controllers middleware models routes utils services client shared",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "build": "tsc -p tsconfig.server.json && node scripts/build-client.js",
     "test": "tsx --test test/*.test.ts",

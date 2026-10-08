@@ -203,18 +203,33 @@ test("notes privées, favoris, recherche, export et concurrence du carnet", asyn
 });
 
 test("retirer un contact pendant une modification ne laisse aucune note orpheline", async () => {
-  const owner = await account("race_owner"), reader = await account("race_reader");
+  const owner = await account("race_owner"),
+    reader = await account("race_reader");
   await post(owner.agent, "/businessCard/addBusinessCard", values("RaceNote"));
-  const card = await Card.findOne({ userId: owner.user.id }); assert.ok(card);
+  const card = await Card.findOne({ userId: owner.user.id });
+  assert.ok(card);
   await post(reader.agent, `/businessCard/${card.id}/save`);
   const results = await Promise.all([
-    post(reader.agent, `/businessCard/${card.id}/organize`, { revision: -1, note: "Concurrent", tags: "dev" }),
+    post(reader.agent, `/businessCard/${card.id}/organize`, {
+      revision: -1,
+      note: "Concurrent",
+      tags: "dev",
+    }),
     post(reader.agent, `/businessCard/${card.id}/remove`),
   ]);
-  assert.ok([302,404].includes(results[0]?.status || 0));
-  assert.equal(results[1]?.status,302);
-  assert.equal(await ContactAnnotation.countDocuments({ userId: reader.user.id, cardId: card.id }),0);
-  assert.equal((await User.findById(reader.user.id))?.library.includes(card.id),false);
+  assert.ok([302, 404].includes(results[0]?.status || 0));
+  assert.equal(results[1]?.status, 302);
+  assert.equal(
+    await ContactAnnotation.countDocuments({
+      userId: reader.user.id,
+      cardId: card.id,
+    }),
+    0,
+  );
+  assert.equal(
+    (await User.findById(reader.user.id))?.library.includes(card.id),
+    false,
+  );
 });
 
 test("inscription minimale sans nom ni confirmation, session révoquée", async () => {
@@ -254,5 +269,192 @@ test("inscription minimale sans nom ni confirmation, session révoquée", async 
     (await request(app).get("/businessCard").set("Cookie", cookie)).headers
       .location,
     "/login",
+  );
+});
+
+test("restauration privée après export et retrait, aperçu lié au compte, répétition sans doublon", async () => {
+  const owner = await account("backup_owner"),
+    reader = await account("backup_reader"),
+    outsider = await account("backup_outsider");
+  await post(
+    owner.agent,
+    "/businessCard/addBusinessCard",
+    values("BackupContact"),
+  );
+  const card = await Card.findOne({ userId: owner.user.id });
+  assert.ok(card);
+  await post(reader.agent, `/businessCard/${card.id}/save`);
+  await post(reader.agent, `/businessCard/${card.id}/organize`, {
+    revision: -1,
+    note: "Rencontre privée",
+    tags: "design, à rappeler",
+    favorite: "on",
+  });
+  const exported = await reader.agent.get("/businessCard/export");
+  await post(reader.agent, `/businessCard/${card.id}/remove`);
+  assert.equal((await User.findById(reader.user.id))?.library.length, 0);
+  const preview = await post(reader.agent, "/businessCard/import/preview", {
+    backup: exported.text,
+  });
+  assert.equal(preview.status, 200);
+  const key = preview.text.match(/name="key" value="([^"]+)"/)?.[1];
+  assert.ok(key);
+  assert.equal(
+    (await User.findById(reader.user.id))?.library.length,
+    0,
+    "aperçu sans écriture métier",
+  );
+  assert.equal(
+    (await post(outsider.agent, "/businessCard/import/apply", { key })).status,
+    409,
+  );
+  const results = await Promise.all([
+    post(reader.agent, "/businessCard/import/apply", { key }),
+    post(reader.agent, "/businessCard/import/apply", { key }),
+  ]);
+  assert.deepEqual(results.map((value) => value.status).sort(), [302, 409]);
+  const restored = await ContactAnnotation.findOne({
+    userId: reader.user.id,
+    cardId: card.id,
+  });
+  assert.ok(restored);
+  assert.equal(restored.note, "Rencontre privée");
+  assert.deepEqual(restored.tags, ["design", "à rappeler"]);
+  assert.equal(restored.favorite, true);
+  assert.deepEqual((await User.findById(reader.user.id))?.library, [card.id]);
+  assert.equal(
+    await ContactAnnotation.countDocuments({ userId: reader.user.id }),
+    1,
+  );
+  assert.equal(
+    await ContactAnnotation.countDocuments({ userId: outsider.user.id }),
+    0,
+  );
+  assert.doesNotMatch(
+    (await owner.agent.get("/businessCard")).text,
+    /Rencontre privée/,
+  );
+});
+
+test("restauration refuse JSON invalide, surdimensionné, champs de propriété, inconnus et ambiguïtés sans écriture", async () => {
+  const owner = await account("invalid_backup_owner"),
+    reader = await account("invalid_backup_reader");
+  const contact = {
+    ...values("ImportTarget"),
+    note: "",
+    tags: [],
+    favorite: false,
+  };
+  const invalid = [
+    "{",
+    JSON.stringify({ version: 2, contacts: [] }),
+    JSON.stringify({
+      version: 1,
+      contacts: [{ ...contact, userId: owner.user.id }],
+    }),
+    JSON.stringify({ version: 1, contacts: Array(201).fill(contact) }),
+    " ".repeat(512 * 1024 + 1),
+    JSON.stringify({ version: 1, contacts: [contact] }),
+  ];
+  for (const backup of invalid)
+    assert.equal(
+      (await post(reader.agent, "/businessCard/import/preview", { backup }))
+        .status,
+      422,
+    );
+  await post(
+    owner.agent,
+    "/businessCard/addBusinessCard",
+    values("ImportTarget"),
+  );
+  await post(
+    owner.agent,
+    "/businessCard/addBusinessCard",
+    values("ImportTarget"),
+  );
+  const ambiguous = await post(reader.agent, "/businessCard/import/preview", {
+    backup: JSON.stringify({ version: 1, contacts: [contact] }),
+  });
+  assert.equal(ambiguous.status, 422);
+  assert.match(ambiguous.text, /Plusieurs cartes/);
+  assert.deepEqual((await User.findById(reader.user.id))?.library, []);
+  assert.equal(
+    (await request(app).get("/businessCard/import")).headers.location,
+    "/login",
+  );
+  assert.equal(
+    (
+      await reader.agent
+        .post("/businessCard/import/preview")
+        .type("form")
+        .send({ backup: "{}" })
+    ).status,
+    403,
+  );
+});
+
+test("restauration bloque une note différente et un changement après aperçu, sans restaurer partiellement", async () => {
+  const owner = await account("conflict_backup_owner"),
+    reader = await account("conflict_backup_reader");
+  await post(
+    owner.agent,
+    "/businessCard/addBusinessCard",
+    values("RestoreOne"),
+  );
+  await post(
+    owner.agent,
+    "/businessCard/addBusinessCard",
+    values("RestoreTwo"),
+  );
+  const cards = await Card.find({ userId: owner.user.id }).sort({ name: 1 });
+  assert.equal(cards.length, 2);
+  const contacts = cards.map((card) => ({
+    ...values(card.name),
+    note: "Sauvegarde",
+    tags: [],
+    favorite: false,
+  }));
+  const preview = await post(reader.agent, "/businessCard/import/preview", {
+    backup: JSON.stringify({ version: 1, contacts }),
+  });
+  assert.equal(preview.status, 200);
+  const key = preview.text.match(/name="key" value="([^"]+)"/)?.[1];
+  assert.ok(key);
+  const second = cards[1];
+  assert.ok(second);
+  await post(owner.agent, `/businessCard/${second.id}/edit`, {
+    ...values(second.name),
+    companyName: "Modifié",
+  });
+  const changed = await post(reader.agent, "/businessCard/import/apply", {
+    key,
+  });
+  assert.equal(changed.status, 409);
+  assert.deepEqual((await User.findById(reader.user.id))?.library, []);
+  assert.equal(
+    await ContactAnnotation.countDocuments({ userId: reader.user.id }),
+    0,
+  );
+  const first = cards[0];
+  assert.ok(first);
+  await post(reader.agent, `/businessCard/${first.id}/save`);
+  await post(reader.agent, `/businessCard/${first.id}/organize`, {
+    revision: -1,
+    note: "Nouvelle note",
+    tags: "",
+  });
+  const conflict = await post(reader.agent, "/businessCard/import/preview", {
+    backup: JSON.stringify({ version: 1, contacts }),
+  });
+  assert.equal(conflict.status, 422);
+  assert.match(conflict.text, /diffèrent/);
+  assert.equal(
+    (
+      await ContactAnnotation.findOne({
+        userId: reader.user.id,
+        cardId: first.id,
+      })
+    )?.note,
+    "Nouvelle note",
   );
 });

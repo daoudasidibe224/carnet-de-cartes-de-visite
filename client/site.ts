@@ -38,6 +38,25 @@ if (dialog instanceof HTMLDialogElement) {
   });
 }
 document.addEventListener("keydown", (event) => {
+  if (
+    event.key === "Tab" &&
+    toggle?.getAttribute("aria-expanded") === "true" &&
+    window.matchMedia("(max-width:850px)").matches
+  ) {
+    const items = [
+      toggle,
+      ...(navigation?.querySelectorAll<HTMLElement>("a[href],button") ?? []),
+    ];
+    const first = items[0],
+      last = items.at(-1);
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last?.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first?.focus();
+    }
+  }
   if (event.key === "Escape") {
     closeMenu();
     if (!(dialog instanceof HTMLDialogElement) || !dialog.open) toggle?.focus();
@@ -120,6 +139,15 @@ const channel =
   typeof BroadcastChannel === "function"
     ? new BroadcastChannel("session-state")
     : undefined;
+function networkNotice(message?: string) {
+  const banner = document.getElementById("network-status");
+  const text = document.getElementById("network-message");
+  if (banner) banner.hidden = !message;
+  if (text) text.textContent = message ?? "";
+}
+document.getElementById("session-retry")?.addEventListener("click", () => {
+  void checkSession();
+});
 async function checkSession() {
   if (navigating) return;
   if (checking) {
@@ -132,7 +160,12 @@ async function checkSession() {
       cache: "no-store",
       credentials: "same-origin",
     });
-    if (!response.ok) return;
+    if (!response.ok) {
+      networkNotice(
+        "Le service est momentanément indisponible. Vos données saisies restent dans cet onglet.",
+      );
+      return;
+    }
     const value: unknown = await response.json();
     if (
       !value ||
@@ -143,7 +176,10 @@ async function checkSession() {
       typeof value.identity !== "string"
     )
       return;
-    if (value.key === expectedSession) return;
+    if (value.key === expectedSession) {
+      networkNotice();
+      return;
+    }
     navigating = true;
     if (dirty && expectedIdentity !== "visitor") {
       const fields: Record<string, { value: string; checked?: boolean }> = {};
@@ -176,12 +212,16 @@ async function checkSession() {
       "session-refresh",
       dirty
         ? "La session a changé. Votre brouillon est conservé dans cet onglet pour votre compte."
-        : "La session a changé. L’accès affiché est à jour.",
+        : value.identity === "visitor"
+          ? "Votre session est terminée. Vous pouvez vous reconnecter quand vous voulez."
+          : "Votre accès a été mis à jour.",
     );
     channel?.postMessage("changed");
     location.replace(value.identity === "visitor" ? ENTRY_PATH : HOME_PATH);
   } catch {
-    /* Une coupure réseau ne détruit pas la page ni le brouillon. */
+    networkNotice(
+      "La connexion est interrompue. Votre page et vos données saisies sont conservées.",
+    );
   } finally {
     checking = false;
     if (recheckPending && !navigating) {
@@ -275,3 +315,43 @@ if (draft && expectedIdentity !== "visitor") {
     sessionStorage.removeItem(draftKey);
   }
 }
+
+const backupFile = document.getElementById("backup-file");
+if (backupFile instanceof HTMLInputElement)
+  backupFile.addEventListener("change", async () => {
+    const file = backupFile.files?.[0];
+    const field = document.getElementById("backup");
+    const status = document.getElementById("backup-file-status");
+    if (!file || !(field instanceof HTMLTextAreaElement) || !status) return;
+    if (file.size > 512 * 1024) {
+      status.textContent = "Le fichier dépasse 512 Ko.";
+      field.value = "";
+      return;
+    }
+    try {
+      field.value = await file.text();
+      status.textContent = `${file.name} est prêt à être vérifié.`;
+      dirty = true;
+    } catch {
+      status.textContent =
+        "Impossible de lire le fichier. Vous pouvez coller son contenu.";
+    }
+  });
+
+for (const button of document.querySelectorAll<HTMLButtonElement>(
+  "[data-copy-contact]",
+))
+  button.addEventListener("click", async () => {
+    const feedback = button
+      .closest("article")
+      ?.querySelector<HTMLElement>(".copy-feedback");
+    if (!feedback) return;
+    feedback.hidden = false;
+    try {
+      await navigator.clipboard.writeText(button.dataset.copyContact ?? "");
+      feedback.textContent = "Coordonnées copiées.";
+    } catch {
+      feedback.textContent =
+        "La copie est indisponible. Sélectionnez les coordonnées dans la carte.";
+    }
+  });

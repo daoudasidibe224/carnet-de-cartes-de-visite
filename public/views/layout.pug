@@ -1,10 +1,13 @@
 doctype html
 html(lang='fr')
   include includes/head
-  body
+  body(class=user ? 'has-account' : 'visitor')
     a.skip-link(href='#contenu') Aller au contenu
     include includes/navBar
     main#contenu
+      .network-status#network-status(hidden role='status')
+        span#network-message
+        button#session-retry(type='button') Réessayer
       include includes/messages
       block content
     include includes/footer

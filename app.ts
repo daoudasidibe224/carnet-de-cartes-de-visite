@@ -1,3 +1,4 @@
+import { registerHealth } from "./health";
 import path from "node:path";
 import { existsSync } from "node:fs";
 import crypto from "node:crypto";
@@ -24,6 +25,7 @@ export function createApp({
     );
   const app = express();
   app.disable("x-powered-by");
+  registerHealth(app);
   if (process.env.TRUST_PROXY === "1") app.set("trust proxy", 1);
   app.use(
     helmet({
@@ -38,6 +40,10 @@ export function createApp({
         },
       },
     }),
+  );
+  app.use(
+    "/businessCard/import",
+    express.urlencoded({ extended: false, limit: "2mb" }),
   );
   app.use(express.urlencoded({ extended: false, limit: "16kb" }));
   app.use(express.json({ limit: "16kb" }));

@@ -387,9 +387,23 @@ test("publication idempotente et édition concurrente sans écrasement silencieu
   );
   assert.equal(await Card.countDocuments({ userId: owner.user.id }), 0);
 });
+test("sondes publiques sans session et état de Mongo", async () => {
+  for (const route of ["/health/live", "/health/ready"]) {
+    const response = await request(app).get(route);
+    assert.equal(response.status, 200);
+    assert.equal(response.headers["set-cookie"], undefined);
+    assert.equal(response.headers["cache-control"], "no-store");
+  }
+});
+
 test("une base indisponible renvoie une erreur sans annoncer de sauvegarde", async () => {
   const a = await account("Unavailable");
   await mongo.stop();
+  assert.equal((await request(app).get("/health/live")).status, 200);
+  assert.equal(
+    (await request(app).get("/health/ready").timeout(5000)).status,
+    503,
+  );
   const response = await request(app)
     .get("/businessCard")
     .set("Cookie", a.cookie)

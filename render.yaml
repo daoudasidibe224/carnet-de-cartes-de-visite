@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: carnet-de-cartes-de-visite
+    runtime: docker
+    repo: https://github.com/daoudasidibe224/carnet-de-cartes-de-visite
+    branch: improve/public-2026-10
+    plan: free
+    region: frankfurt
+    numInstances: 1
+    autoDeployTrigger: "off"
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health/ready
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "10000"
+      - key: TRUST_PROXY
+        value: "1"
+      - key: SECRET
+        sync: false
+      - key: MONGODB_URI
+        sync: false

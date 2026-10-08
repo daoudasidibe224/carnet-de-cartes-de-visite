@@ -7,6 +7,7 @@ declare module "express-session" {
     csrfToken?: string;
     userId?: string;
     notice?: string;
+    backupPlan?: import("./services/backup.service").BackupPlan;
   }
 }
 declare module "express-serve-static-core" {

@@ -7,6 +7,9 @@ export async function start() {
     throw new Error("Renseignez MONGODB_URI dans .env");
   if (!process.env.SECRET || process.env.SECRET.length < 32)
     throw new Error("SECRET doit contenir au moins 32 caractères");
+  const port = Number(process.env.PORT ?? 5000);
+  if (!Number.isInteger(port) || port < 1 || port > 65535)
+    throw new Error("PORT doit être un entier de 1 à 65535");
   await mongoose.connect(process.env.MONGODB_URI, {
     serverSelectionTimeoutMS: 10000,
   });
@@ -15,10 +18,8 @@ export async function start() {
     collectionName: "sessions",
   });
   const app = createApp({ secret: process.env.SECRET, store });
-  const server = app.listen(process.env.PORT || 5000, () =>
-    console.log(
-      `Carnet disponible sur http://localhost:${process.env.PORT || 5000}`,
-    ),
+  const server = app.listen(port, "0.0.0.0", () =>
+    console.log(`Carnet disponible sur http://localhost:${port}`),
   );
   let closing = false;
   async function close() {

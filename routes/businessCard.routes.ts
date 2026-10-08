@@ -1,5 +1,6 @@
 import { Router } from "express";
 const router = Router();
+import * as backup from "../controllers/backup.controller";
 import * as card from "../controllers/businessCard.controller";
 import { requireAuth } from "../middleware/auth.middleware";
 router.use(requireAuth);
@@ -9,6 +10,9 @@ router.post("/addBusinessCard", card.addBusinessCard);
 router.get("/savedBusinessCard", card.getMySavedBusinessCard);
 router.get("/mine", card.getMyCards);
 router.get("/export", card.exportLibrary);
+router.get("/import", backup.importForm);
+router.post("/import/preview", backup.preview);
+router.post("/import/apply", backup.apply);
 router.get("/:id/organize", card.editAnnotation);
 router.post("/:id/organize", card.saveAnnotation);
 router.get("/:id/edit", card.editCard);

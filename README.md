@@ -11,7 +11,8 @@ Créez vos cartes de visite, découvrez celles des autres membres et gardez les 
 - Notes personnelles, jusqu’à 8 étiquettes par contact et favoris privés.
 - Recherche dans les notes et étiquettes, filtres par étiquette et favoris dans la bibliothèque.
 - Export JSON de toute la bibliothèque avec les coordonnées et vos annotations privées.
-- Export vCard des cartes visibles, avec échappement des séparateurs et retours à la ligne.
+- Restauration privée de cette sauvegarde, avec aperçu et application transactionnelle sans publication de nouvelles cartes.
+- Liens email et téléphone, copie des coordonnées et export vCard des cartes visibles, avec échappement des séparateurs et retours à la ligne.
 - Formulaires avec erreurs ciblées, navigation mobile et confirmation de suppression au clavier.
 
 ## Stack et architecture
@@ -63,7 +64,7 @@ Si le port 27017 est déjà occupé, utilisez votre instance locale compatible o
 | `npm test`          | Exécuter les tests HTTP et MongoDB                                 |
 | `npm run check`     | Exécuter lint, types, compilation et tests                         |
 
-`npm run dev` surveille le serveur et les sources du client. Les tests lancent un vrai replica set MongoDB temporaire via `mongodb-memory-server`. Le premier lancement télécharge le binaire et nécessite un accès réseau. Ils couvrent auth et CSRF, renouvellement et révocation des sessions, accès au profil, hachage, propriété des cartes, bibliothèque idempotente, nettoyage transactionnel, publication concurrente sans doublon, conflit d’édition et de notes, isolation des annotations privées, filtres, export JSON personnel, recherche littérale, pagination, export et persistance dans une nouvelle instance du serveur. Les parcours Chromium vérifient aussi les formulaires compacts, les erreurs de nom facultatif, la déconnexion entre onglets, le changement de compte et l’expiration. La CI lance les mêmes contrôles et les parcours navigateur sous Node.js 22.
+`npm run dev` surveille le serveur et les sources du client. Les tests lancent un vrai replica set MongoDB temporaire via `mongodb-memory-server`. Le premier lancement télécharge le binaire et nécessite un accès réseau. Ils couvrent auth et CSRF, renouvellement et révocation des sessions, accès au profil, hachage, propriété des cartes, bibliothèque idempotente, nettoyage transactionnel, publication concurrente sans doublon, conflit d’édition et de notes, isolation des annotations privées, filtres, export JSON personnel, recherche littérale, pagination, export et persistance dans une nouvelle instance du serveur. Les tests de restauration couvrent validation stricte, accès privé, ambiguïtés, notes différentes, changements après aperçu et envois simultanés. Les parcours Chromium restaurent un vrai fichier exporté après retrait d’un contact, puis vérifient ses notes après rechargement. Ils distinguent aussi une interruption réseau de la fin d’une session. Les parcours Chromium vérifient aussi les formulaires compacts, les erreurs de nom facultatif, la déconnexion entre onglets, le changement de compte et l’expiration. La CI lance les mêmes contrôles et les parcours navigateur sous Node.js 22.
 
 ## Publication et modifications concurrentes
 
@@ -75,13 +76,13 @@ La modification porte la version de la carte chargée. Si un autre onglet l’a 
 
 ## Interface et fontes
 
-Le carnet adopte un répertoire éditorial : masthead, index de recherche, cartes rectangulaires et liens de coordonnées soulignés. Cormorant Garamond et Figtree sont servis localement, avec leurs licences SIL Open Font License dans `public/fonts/`. Les fichiers proviennent du [répertoire officiel Google Fonts](https://github.com/google/fonts).
+Le carnet organise les contacts dans un espace de travail : navigation latérale sur ordinateur, menu compact sur mobile, recherche et filtres au-dessus des cartes. Les formulaires de coordonnées et de notes restent séparés des cartes partagées. Cormorant Garamond et Figtree sont servis localement, avec leurs licences SIL Open Font License dans `public/fonts/`. Les fichiers proviennent du [répertoire officiel Google Fonts](https://github.com/google/fonts).
 
 ## Données et limites
 
 Les cartes publiées sont visibles par tous les membres connectés. Le profil du compte reste privé. Modifier le profil ne modifie pas automatiquement les cartes déjà publiées. Les cartes enregistrées dans une bibliothèque restent liées à leur carte d’origine : une modification est visible à la prochaine consultation ; une suppression les retire des bibliothèques dans la même transaction.
 
-Les notes, les étiquettes et les favoris ne sont accessibles qu’au compte qui les a enregistrés. Leur recherche reste limitée à sa bibliothèque. L’export `mon-carnet.json` contient toutes ses cartes conservées, avec ses propres annotations ; il ne contient aucun identifiant interne ni annotation d’un autre membre. Ce fichier peut servir à une sauvegarde ou à un traitement externe ; l’import JSON n’est pas proposé.
+Les notes, les étiquettes et les favoris ne sont accessibles qu’au compte qui les a enregistrés. Leur recherche reste limitée à sa bibliothèque. L’export `mon-carnet.json` contient toutes ses cartes conservées, avec ses propres annotations ; il ne contient aucun identifiant interne ni annotation d’un autre membre. Ce fichier peut être restauré dans la bibliothèque depuis « Restaurer une sauvegarde ». Le fichier est lu localement avant d’être envoyé pour vérification ; aucun contact n’est ajouté pendant l’aperçu.
 
 Comptes, cartes, annotations privées, bibliothèques et sessions persistent dans MongoDB et survivent au redémarrage du serveur. Une erreur de base affiche une page d’erreur et ne valide pas l’opération. Le serveur refuse de démarrer si la configuration manque ou si la base est inaccessible. L’application ne propose pas de réinitialisation de mot de passe, de validation d’email ou d’import de fichier vCard.
 
@@ -90,3 +91,32 @@ L’ancienne configuration de cluster et le secret JWT fixe ne sont plus utilis�
 `PORT` vaut 5000 par défaut. En production, utilisez HTTPS et `NODE_ENV=production`. `TRUST_PROXY=1` convient uniquement à un proxy de confiance qui contrôle les connexions entrantes ; les cookies de production exigent HTTPS. Le fichier Compose sert au développement local, sans exposer MongoDB hors de la machine.
 
 Les tests navigateur démarrent leur propre serveur et MongoDB locale temporaire. Avant leur premier lancement : `npx playwright install chromium`. Ils utilisent un port libre et écrivent les captures dans `test-results/`.
+
+## Restauration d’une sauvegarde
+
+L’import accepte le format JSON version 1 exporté par le carnet, jusqu’à 200 contacts et 512 Ko. Chaque contact doit correspondre exactement à une carte d’un autre membre encore publiée, par son nom et son email. Une carte inconnue ou plusieurs cartes identiques bloquent toute la restauration. Les coordonnées partagées restent celles de la carte actuelle ; la sauvegarde ne les remplace pas et ne crée aucune carte.
+
+L’aperçu reste cinq minutes dans la session du compte. Un nouvel aperçu dans un autre onglet remplace le précédent. La confirmation restaure les références, les notes, les étiquettes et les favoris dans une seule transaction. Des notes déjà présentes et différentes sont conservées et bloquent l’import. Un changement du carnet, des notes ou d’une carte depuis l’aperçu impose une nouvelle vérification. Un double envoi ne crée ni deuxième référence ni deuxième annotation. Annuler l’aperçu ne modifie aucune donnée métier.
+
+## Exécution dans un conteneur
+
+Le [dépôt public](https://github.com/daoudasidibe224/carnet-de-cartes-de-visite) fournit un Dockerfile qui compile TypeScript et exécute le serveur avec l’utilisateur non privilégié `node`.
+
+```sh
+docker build -t carnet-de-cartes-de-visite .
+docker run --rm --env-file .env -e NODE_ENV=production -p 5000:5000 carnet-de-cartes-de-visite
+```
+
+La base doit être accessible depuis le réseau du conteneur et fonctionner en replica set. `localhost` dans l’URI désigne le conteneur. Le port interne suit `PORT`, compris entre 1 et 65535. `GET /health/live` vérifie le processus ; `GET /health/ready` vérifie MongoDB et renvoie 503 si la base est indisponible. Ces sondes ne créent pas de session. La CI construit aussi l’image.
+
+Pour une publication, configurez une base MongoDB durable externe, `SECRET`, `MONGODB_URI`, `NODE_ENV=production` et le port attendu par l’hébergeur. Servez l’application sous une origine HTTPS. Activez `TRUST_PROXY=1` uniquement si un proxy de confiance contrôle les connexions entrantes ; les cookies restent sécurisés en production. Ne comptez pas sur le disque du conteneur pour conserver la base. Une mise en veille retarde l’ouverture du carnet ; les données restent dans MongoDB. L’image ne fournit ni base distante ni domaine ni certificat, et un Blueprint Render est préparé, mais aucun service distant n’a été créé.
+
+## Préparation Render gratuit
+
+`render.yaml` décrit un service Docker gratuit, en région Francfort, sur la branche `improve/public-2026-10`. La sonde est `/health/ready` et les déploiements automatiques sont désactivés. Renseignez `SECRET` et `MONGODB_URI` lors de la création du Blueprint ; `sync: false` garde leurs valeurs hors de Git. Le fichier ne crée aucun service ni abonnement à lui seul.
+
+La base prévue est MongoDB Atlas Free (anciennement M0), avec son replica set et jusqu’à 512 Mo de stockage. Les transactions du carnet exigent ce replica set. Choisissez une base réservée au carnet, un utilisateur limité à cette base et autorisez les adresses de sortie de votre service dans l’accès réseau Atlas. Conservez TLS dans l’URI. Comptes, cartes, bibliothèque, notes et sessions restent dans cette base durable ; ils ne sont pas stockés sur le disque du service. [Configuration des clusters Atlas](https://www.mongodb.com/docs/atlas/manage-clusters/).
+
+Render Free partage 750 heures d’instances par mois entre les services d’un même espace. Après 15 minutes sans trafic entrant, une instance se met en veille ; une nouvelle demande la redémarre avec un délai. Le disque est éphémère et ne peut pas héberger la base durable. Une seule instance est prévue pour cette démonstration. Les quotas de stockage, de trafic et de construction doivent être suivis dans les comptes concernés. [Limites Render Free](https://render.com/docs/free), [référence du Blueprint](https://render.com/docs/blueprint-spec).
+
+La publication attend la connexion du fournisseur, la création ou configuration de la base et des secrets, puis une validation sur l’URL HTTPS réelle. Aucun compte cloud ni service distant n’a encore été créé pour ce dépôt.

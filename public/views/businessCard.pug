@@ -1,15 +1,19 @@
 extends layout
 block content
-  - const heading = mode === 'mine' ? 'Mes cartes de visite' : mode === 'saved' ? 'Ma bibliothèque' : 'L’annuaire des contacts.'
-  - const description = mode === 'mine' ? 'Présentez vos activités. Vous choisissez les coordonnées de chaque carte.' : mode === 'saved' ? 'Les cartes que vous avez gardées, à retrouver ou à exporter quand vous en avez besoin.' : 'Parcourez les cartes publiées par les autres membres et gardez celles qui vous intéressent.'
+  - const heading = mode === 'mine' ? 'Mes cartes' : mode === 'saved' ? 'Ma bibliothèque' : 'Découvrir des contacts'
+  - const description = mode === 'mine' ? 'Présentez vos activités. Vous choisissez les coordonnées de chaque carte.' : mode === 'saved' ? 'Vos contacts, notes et favoris privés.' : 'Parcourez les cartes publiées par les autres membres et gardez celles qui vous intéressent.'
   - const basePath = mode === 'mine' ? '/businessCard/mine' : mode === 'saved' ? '/businessCard/savedBusinessCard' : '/businessCard'
   .page-heading.heading-with-action
     div
-      p.eyebrow= mode === 'directory' ? 'L’annuaire des membres' : 'Votre carnet'
+      p.eyebrow= mode === 'directory' ? 'Annuaire des membres' : mode === 'saved' ? 'Contacts enregistrés' : 'Cartes publiées'
       h1= heading
       p.lead= description
     if mode === 'saved'
-      a.button.secondary(href='/businessCard/export') Exporter mon carnet .json
+      details.library-tools
+        summary Sauvegardes
+        .library-tools-menu
+          a(href='/businessCard/import') Restaurer une sauvegarde
+          a(href='/businessCard/export') Exporter mon carnet .json
     else
       a.button(href='/businessCard/addBusinessCard') Créer une carte
   .directory-layout
@@ -22,15 +26,17 @@ block content
           if q
             a.text-link(href=basePath) Effacer
         if mode === 'saved'
-          .private-filters
-            label(for='tag-filter') Étiquette
-            select#tag-filter(name='tag')
-              option(value='') Toutes les étiquettes
-              each label in availableTags
-                option(value=label selected=tag === label)= label
-            label.favorite-checkbox
-              input(type='checkbox' name='favorites' value='1' checked=favorites)
-              | Favoris uniquement
+          details.filter-tools(open=Boolean(tag || favorites))
+            summary= tag || favorites ? `Filtres actifs${tag ? ' · ' + tag : ''}${favorites ? ' · favoris' : ''}` : 'Filtres'
+            .private-filters
+              label(for='tag-filter') Étiquette
+              select#tag-filter(name='tag')
+                option(value='') Toutes les étiquettes
+                each label in availableTags
+                  option(value=label selected=tag === label)= label
+              label.favorite-checkbox
+                input(type='checkbox' name='favorites' value='1' checked=favorites)
+                | Favoris uniquement
         if mode === 'saved' && (tag || favorites)
           a.text-link(href=basePath) Réinitialiser les filtres
       p.result-count #{total} #{total > 1 ? 'cartes' : 'carte'}
@@ -41,6 +47,7 @@ block content
             .card-face
               .card-top
                 span.card-company= card.companyName || 'Contact indépendant'
+              span.card-monogram(aria-hidden='true')= card.name.split(' ').slice(0,2).map(word => word[0]).join('')
               h2(id=`name-${card.id}`)= card.name
               .card-details
                 a(href=`mailto:${card.email}`)= card.email
@@ -58,6 +65,7 @@ block content
                 if annotation && annotation.note
                   p.private-note= annotation.note
             .card-actions
+              button.copy-contact(type='button' data-copy-contact=`${card.name}\n${card.email}${card.tel ? '\n' + card.tel : ''}` aria-label=`Copier les coordonnées de ${card.name}`) Copier
               a.download-link(href=`/businessCard/${card.id}/vcard` aria-label=`Exporter la carte de ${card.name}`) Exporter .vcf
               if mode === 'mine'
                 a(href=`/businessCard/${card.id}/edit` aria-label=`Modifier la carte de ${card.name}`) Modifier
@@ -70,6 +78,7 @@ block content
                 form(action=`/businessCard/${card.id}/${mode === 'saved' ? 'remove' : 'save'}` method='post')
                   input(type='hidden' name='_csrf' value=csrfToken)
                   button.card-action(type='submit' aria-label=`${mode === 'saved' ? 'Retirer' : 'Garder'} la carte de ${card.name}`)= mode === 'saved' ? 'Retirer' : 'Garder la carte'
+            p.copy-feedback(hidden role='status')
       if pages > 1
         nav.pagination(aria-label='Pages de cartes')
           if page > 1
@@ -79,7 +88,6 @@ block content
             a.button.secondary(href=`${basePath}?q=${encodeURIComponent(q)}&tag=${encodeURIComponent(tag)}&favorites=${favorites ? 1 : 0}&page=${page+1}`) Page suivante
     else
       section.empty-state
-        .empty-icon(aria-hidden='true') C
         h2= q ? 'Aucune carte pour cette recherche' : mode === 'mine' ? 'Votre première carte vous attend.' : mode === 'saved' ? 'Gardez les contacts qui comptent.' : 'Les prochaines rencontres arrivent bientôt.'
         p= q ? 'Essayez un autre nom, une entreprise ou une adresse email.' : mode === 'mine' ? 'Créez une carte pour présenter votre activité aux autres membres.' : mode === 'saved' ? 'Ouvrez l’annuaire et ajoutez une carte à votre bibliothèque.' : 'Aucune carte publiée par un autre membre pour le moment.'
         a.button.secondary(href=q ? basePath : mode === 'saved' ? '/businessCard' : '/businessCard/addBusinessCard')= q ? 'Voir toutes les cartes' : mode === 'saved' ? 'Découvrir les cartes' : 'Créer ma carte'
