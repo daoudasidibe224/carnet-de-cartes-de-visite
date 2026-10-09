@@ -1,5 +1,7 @@
 # Carnet de cartes de visite
 
+[Essayer la démo publique](https://carnet-de-cartes-de-visite.onrender.com). Le premier chargement peut prendre environ une minute après la mise en veille du service gratuit.
+
 Créez vos cartes de visite, découvrez celles des autres membres et gardez les contacts utiles dans votre bibliothèque. Chaque carte contient un nom, une entreprise facultative, un email et un téléphone facultatif. L’export `.vcf` permet de l’importer dans un carnet de contacts compatible vCard 3.0.
 
 ## Fonctionnalités
@@ -109,7 +111,7 @@ docker run --rm --env-file .env -e NODE_ENV=production -p 5000:5000 carnet-de-ca
 
 La base doit être accessible depuis le réseau du conteneur et fonctionner en replica set. `localhost` dans l’URI désigne le conteneur. Le port interne suit `PORT`, compris entre 1 et 65535. `GET /health/live` vérifie le processus ; `GET /health/ready` vérifie MongoDB et renvoie 503 si la base est indisponible. Ces sondes ne créent pas de session. La CI construit aussi l’image.
 
-Pour une publication, configurez une base MongoDB durable externe, `SECRET`, `MONGODB_URI`, `NODE_ENV=production` et le port attendu par l’hébergeur. Servez l’application sous une origine HTTPS. Activez `TRUST_PROXY=1` uniquement si un proxy de confiance contrôle les connexions entrantes ; les cookies restent sécurisés en production. Ne comptez pas sur le disque du conteneur pour conserver la base. Une mise en veille retarde l’ouverture du carnet ; les données restent dans MongoDB. L’image ne fournit ni base distante ni domaine ni certificat, et un Blueprint Render est préparé, mais aucun service distant n’a été créé.
+Pour une publication, configurez une base MongoDB durable externe, `SECRET`, `MONGODB_URI`, `NODE_ENV=production` et le port attendu par l’hébergeur. Servez l’application sous une origine HTTPS. Activez `TRUST_PROXY=1` uniquement si un proxy de confiance contrôle les connexions entrantes ; les cookies restent sécurisés en production. Ne comptez pas sur le disque du conteneur pour conserver la base. Une mise en veille retarde l’ouverture du carnet ; les données restent dans MongoDB. L’image ne fournit ni base distante ni domaine ni certificat, et le service de démonstration Render Free est déployé avec une base Atlas M0 dédiée.
 
 ## Préparation Render gratuit
 
