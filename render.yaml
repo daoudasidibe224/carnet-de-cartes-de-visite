@@ -3,7 +3,7 @@ services:
     name: carnet-de-cartes-de-visite
     runtime: docker
     repo: https://github.com/daoudasidibe224/carnet-de-cartes-de-visite
-    branch: improve/public-2026-10
+    branch: develop
     plan: free
     region: frankfurt
     numInstances: 1

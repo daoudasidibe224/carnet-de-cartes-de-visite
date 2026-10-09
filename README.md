@@ -115,7 +115,7 @@ Pour une publication, configurez une base MongoDB durable externe, `SECRET`, `MO
 
 ## Préparation Render gratuit
 
-`render.yaml` décrit un service Docker gratuit, en région Francfort, sur la branche `improve/public-2026-10`. La sonde est `/health/ready` et les déploiements automatiques sont désactivés. Renseignez `SECRET` et `MONGODB_URI` lors de la création du Blueprint ; `sync: false` garde leurs valeurs hors de Git. Le fichier ne crée aucun service ni abonnement à lui seul.
+`render.yaml` décrit un service Docker gratuit, en région Francfort, sur la branche `develop`. La sonde est `/health/ready` et les déploiements automatiques sont désactivés. Renseignez `SECRET` et `MONGODB_URI` lors de la création du Blueprint ; `sync: false` garde leurs valeurs hors de Git. Le fichier ne crée aucun service ni abonnement à lui seul.
 
 La base prévue est MongoDB Atlas Free (anciennement M0), avec son replica set et jusqu’à 512 Mo de stockage. Les transactions du carnet exigent ce replica set. Choisissez une base réservée au carnet, un utilisateur limité à cette base et autorisez les adresses de sortie de votre service dans l’accès réseau Atlas. Conservez TLS dans l’URI. Comptes, cartes, bibliothèque, notes et sessions restent dans cette base durable ; ils ne sont pas stockés sur le disque du service. [Configuration des clusters Atlas](https://www.mongodb.com/docs/atlas/manage-clusters/).
 
